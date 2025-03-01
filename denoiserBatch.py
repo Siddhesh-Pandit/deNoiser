@@ -61,6 +61,7 @@ def read_images_from_folder_and_deNoise(folder_path):
     return images
 
 #folder_path = 'path/to/your/image/folder'
+#add your path below
 folder_path ='/Users/siddhesh/Downloads/trial-dnoiser'
 images = read_images_from_folder_and_deNoise(folder_path)
 
