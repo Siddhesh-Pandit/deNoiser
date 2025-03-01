@@ -2,6 +2,7 @@
 
 import numpy as np
 import os
+import configparser
 import matplotlib.pyplot as plt
 from skimage import data, img_as_float
 from skimage.restoration import denoise_nl_means, estimate_sigma
@@ -60,14 +61,25 @@ def read_images_from_folder_and_deNoise(folder_path):
                 print(f"Error reading image:{filename}")
     return images
 
-#folder_path = 'path/to/your/image/folder'
-#add your path below
-folder_path ='/Users/siddhesh/Downloads/trial-dnoiser'
-images = read_images_from_folder_and_deNoise(folder_path)
 
-if images:
-    print(f"Successfully read {len(images)} images.")
-    print("Exiting")
+config = configparser.ConfigParser()
 
-else:
-    print("No images found or an error occurred.")
+try:
+    config.read('config.ini')
+    folder_path = config.get('Paths', 'file_path')
+    print(f"File path: {folder_path}")
+    images = read_images_from_folder_and_deNoise(folder_path)
+
+    if images:
+        print(f"Successfully read {len(images)} images.")
+        print("Exiting")
+
+    else:
+        print("No images found or an error occurred.")
+
+except configparser.Error as e:
+    print(f"Error reading config file: {e}")
+except KeyError:
+    print("The 'file_path' key was not found in the 'Paths' section.")
+except FileNotFoundError:
+    print("The 'config.ini' file was not found.")
