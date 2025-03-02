@@ -48,7 +48,7 @@ def append_extension(filename, extension):
     return filename + extension
   return filename
 
-def read_images_from_folder_and_deNoise(folder_path, output_folder_path):
+def read_images_from_folder_and_deNoise(folder_path, output_folder_path, brightness_factor):
     
     if not os.path.exists(output_folder_path):
         os.makedirs(output_folder_path)
@@ -68,6 +68,8 @@ def read_images_from_folder_and_deNoise(folder_path, output_folder_path):
                 filenameNew = append_extension(os.path.splitext(filename)[0],extension)
 
                 output_file_path = os.path.join(output_folder_path, filenameNew)
+                np.clip(gaussian_img+ brightness_factor, 0, 255).astype(np.uint8)
+
                 plt.imsave(output_file_path, gaussian_img, dpi=300)
                 print(f"processed gaussian filter image:{output_file_path}")
 
@@ -76,19 +78,21 @@ def read_images_from_folder_and_deNoise(folder_path, output_folder_path):
                 filenameNew = append_extension(os.path.splitext(filename)[0],extension)
                 output_file_path = os.path.join(output_folder_path, filenameNew)
                 
+                np.clip(median_img+ brightness_factor, 0, 255).astype(np.uint8)
                 plt.imsave(output_file_path, median_img, dpi=500)
                 print(f"processed median filter image:{output_file_path}")
 
 
                 sigma_est = np.mean(estimate_sigma(img, channel_axis=-1))
                 denoise_nl = denoise_nl_means(img, h=1.15 * sigma_est, fast_mode=True, patch_distance=2, patch_size=2, channel_axis=-1)
+                np.clip(denoise_nl+ brightness_factor, 0, 255).astype(np.uint8)
                 extension ="_nonlocal.jpeg"
                 filenameNew = append_extension(os.path.splitext(filename)[0],extension)
 
                 output_file_path = os.path.join(output_folder_path, filenameNew)
                 plt.imsave(output_file_path, denoise_nl, dpi=300)
                 print(f"processed nonlocal filter image:{output_file_path}")
-
+                
 
                 images.append(img)
 
@@ -144,11 +148,12 @@ if os.path.isfile(configFileName):
         config.read(configFileName)
         folder_path = config.get('Paths', 'input_file_path')
         output_folder_path = config.get('Paths', 'output_file_path')
+        brightness = config.getint('Brightness','brightness')
 
         print(f"input file path: {folder_path}")
         print(f"output file path: {output_folder_path}")
 
-        images = read_images_from_folder_and_deNoise(folder_path, output_folder_path)
+        images = read_images_from_folder_and_deNoise(folder_path, output_folder_path, brightness)
 
         if images:
             print(f"Successfully read {len(images)} images.")
