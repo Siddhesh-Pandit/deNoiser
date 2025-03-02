@@ -10,6 +10,7 @@ from skimage import io
 from scipy import ndimage as nd
 from skimage.restoration import denoise_nl_means, estimate_sigma
 
+
 def append_extension(filename, extension):
   """Appends an extension to a filename if it doesn't already have one.
 
@@ -25,8 +26,13 @@ def append_extension(filename, extension):
     return filename + extension
   return filename
 
-def read_images_from_folder_and_deNoise(folder_path):
+def read_images_from_folder_and_deNoise(folder_path, output_folder_path):
+    
+    if not os.path.exists(output_folder_path):
+        os.makedirs(output_folder_path)
+    
     images = []
+
     for filename in os.listdir(folder_path):
         if filename.endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp')):
             img_path = os.path.join(folder_path, filename)
@@ -38,18 +44,29 @@ def read_images_from_folder_and_deNoise(folder_path):
                 gaussian_img=nd.gaussian_filter(img, sigma=.75)
                 extension ="_gaussian.jpeg"
                 filenameNew = append_extension(os.path.splitext(filename)[0],extension)
-                plt.imsave(filenameNew, gaussian_img, dpi=300)
+
+                output_file_path = os.path.join(output_folder_path, filenameNew)
+                plt.imsave(output_file_path, gaussian_img, dpi=300)
+                print(f"processed gaussian filter image:{output_file_path}")
 
                 median_img=nd.median_filter(img, size=3)
                 extension ="_median.jpeg"
                 filenameNew = append_extension(os.path.splitext(filename)[0],extension)
-                plt.imsave(filenameNew, median_img, dpi=300)
+                output_file_path = os.path.join(output_folder_path, filenameNew)
+                
+                plt.imsave(output_file_path, median_img, dpi=500)
+                print(f"processed median filter image:{output_file_path}")
+
 
                 sigma_est = np.mean(estimate_sigma(img, channel_axis=-1))
                 denoise_nl = denoise_nl_means(img, h=1.15 * sigma_est, fast_mode=True, patch_distance=2, patch_size=2, channel_axis=-1)
                 extension ="_nonlocal.jpeg"
                 filenameNew = append_extension(os.path.splitext(filename)[0],extension)
-                plt.imsave(filenameNew, denoise_nl, dpi=300)
+
+                output_file_path = os.path.join(output_folder_path, filenameNew)
+                plt.imsave(output_file_path, denoise_nl, dpi=300)
+                print(f"processed nonlocal filter image:{output_file_path}")
+
 
                 images.append(img)
 
@@ -58,13 +75,18 @@ def read_images_from_folder_and_deNoise(folder_path):
                 print(f"Error reading image:{filename}")
     return images
 
+
 config = configparser.ConfigParser()
 
 try:
     config.read('config.ini')
-    folder_path = config.get('Paths', 'file_path')
-    print(f"File path: {folder_path}")
-    images = read_images_from_folder_and_deNoise(folder_path)
+    folder_path = config.get('Paths', 'input_file_path')
+    output_folder_path = config.get('Paths', 'output_file_path')
+
+    print(f"input file path: {folder_path}")
+    print(f"output file path: {output_folder_path}")
+
+    images = read_images_from_folder_and_deNoise(folder_path, output_folder_path)
 
     if images:
         print(f"Successfully read {len(images)} images.")
