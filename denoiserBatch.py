@@ -1,5 +1,3 @@
-
-
 import numpy as np
 import os
 import configparser
@@ -11,7 +9,6 @@ from skimage.util import random_noise
 from skimage import io
 from scipy import ndimage as nd
 from skimage.restoration import denoise_nl_means, estimate_sigma
-
 
 def append_extension(filename, extension):
   """Appends an extension to a filename if it doesn't already have one.
@@ -60,7 +57,6 @@ def read_images_from_folder_and_deNoise(folder_path):
             else:
                 print(f"Error reading image:{filename}")
     return images
-
 
 config = configparser.ConfigParser()
 
