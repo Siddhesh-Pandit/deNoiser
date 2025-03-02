@@ -4,6 +4,7 @@
 - Currently tested on for OS X only
 - Download and Extract deNoiser.zip
 - Edit file paths in config.ini to reflect the path for noisy images for input and processed output.
+- Edit brightness in config.ini to adjust brightness factor
 - Navigate to deNoiser/dist/ and click to run denoiserBatch.
 
 
