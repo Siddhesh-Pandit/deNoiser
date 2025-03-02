@@ -30,6 +30,8 @@ processing:/Users/siddhesh/Downloads/trial-dnoiser/D85_8126.jpeg
 successfully processed:/Users/siddhesh/Downloads/trial-dnoiser/D85_8126.jpeg
 Successfully read 2 images.
 ```
+Left is after; Right is before
+![Screenshot 2025-02-28 at 8 53 46 PM](https://github.com/user-attachments/assets/8775aef0-abff-4c8a-a0b3-eee30cd0b2c4)
 
 ## Maintainers
 - Adwait Godbole
