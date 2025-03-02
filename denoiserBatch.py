@@ -162,6 +162,6 @@ if os.path.isfile(configFileName):
     except KeyError:
         print("The 'file_path' key was not found in the 'Paths' section.")
     except FileNotFoundError:
-        print("The 'config.ini' file was not found.")
+        print("The source and path files are not within deNoiser directory.")
 else:
     print("Error! either config.ini not found or source and path files are not within deNoiser directory ")

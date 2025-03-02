@@ -1,4 +1,4 @@
-('/Users/siddhesh/Downloads/deNoiser/build/denoiserBatch/PYZ-00.pyz',
+('/Users/siddhesh/GitHub/deNoiser/build/denoiserBatch/PYZ-00.pyz',
  [('PIL',
    '/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/PIL/__init__.py',
    'PYMODULE'),
