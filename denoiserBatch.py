@@ -11,6 +11,28 @@ from scipy import ndimage as nd
 from skimage.restoration import denoise_nl_means, estimate_sigma
 
 
+def find_directory_in_tree(root_dir, target_dir):
+    for dirpath, dirnames, filenames in os.walk(root_dir):
+        if target_dir in dirnames:
+            return os.path.join(dirpath, target_dir)
+    return None
+
+
+def find_directory(dir_name):
+    """
+    Finds a directory with the given name under the current working directory.
+
+    Args:
+        dir_name: The name of the directory to find.
+
+    Returns:
+        The absolute path to the directory if found, otherwise None.
+    """
+    for item in os.listdir():
+        if os.path.isdir(item) and item == dir_name:
+            return os.path.abspath(item)
+    return None
+
 def append_extension(filename, extension):
   """Appends an extension to a filename if it doesn't already have one.
 
@@ -76,28 +98,70 @@ def read_images_from_folder_and_deNoise(folder_path, output_folder_path):
     return images
 
 
-config = configparser.ConfigParser()
+print("looking for config.ini")
+#where are we copied?
+cwd = os.getcwd()
+print(f"current dir:{cwd}")
 
-try:
-    config.read('config.ini')
-    folder_path = config.get('Paths', 'input_file_path')
-    output_folder_path = config.get('Paths', 'output_file_path')
+# find project dir:
+directory_name_to_find = "deNoiser"
+found_directory = find_directory(directory_name_to_find)
 
-    print(f"input file path: {folder_path}")
-    print(f"output file path: {output_folder_path}")
+if found_directory:
+    print(f"Directory '{directory_name_to_find}' found at: {found_directory}")
 
-    images = read_images_from_folder_and_deNoise(folder_path, output_folder_path)
-
-    if images:
-        print(f"Successfully read {len(images)} images.")
-        print("Exiting")
+    if os.path.exists(found_directory) and os.path.isdir(found_directory):
+        
+        os.chdir(found_directory)        
+        cwd = os.getcwd()
+        print(f"current dir:{cwd}")
 
     else:
-        print("No images found or an error occurred.")
+        print("deNoiser directory structure incorrect")
 
-except configparser.Error as e:
-    print(f"Error reading config file: {e}")
-except KeyError:
-    print("The 'file_path' key was not found in the 'Paths' section.")
-except FileNotFoundError:
-    print("The 'config.ini' file was not found.")
+else:
+    print(f"config.ini '{directory_name_to_find}' not found under the current working directory.")
+    print("Please grant persmission to search system for the deNoiser's config if not done previously")
+    root_directory = cwd # Replace with the directory to start searching from
+    result = find_directory_in_tree(root_directory, directory_name_to_find)
+
+    if result:
+        print(f"Directory '{directory_name_to_find}' found at: {result}")
+        os.chdir(result)        
+        cwd = os.getcwd()
+        print(f"current dir:{cwd}")
+
+    else:
+        print(f"Directory '{directory_name_to_find}' not found in '{root_directory}'.")
+
+#we found the dir where config.ini is placed
+configFileName = "./config.ini"
+if os.path.isfile(configFileName):
+    print("found config.ini")
+    config = configparser.ConfigParser()
+
+    try:
+        config.read(configFileName)
+        folder_path = config.get('Paths', 'input_file_path')
+        output_folder_path = config.get('Paths', 'output_file_path')
+
+        print(f"input file path: {folder_path}")
+        print(f"output file path: {output_folder_path}")
+
+        images = read_images_from_folder_and_deNoise(folder_path, output_folder_path)
+
+        if images:
+            print(f"Successfully read {len(images)} images.")
+            print("Exiting")
+
+        else:
+            print("No images found or an error occurred.")
+
+    except configparser.Error as e:
+        print(f"Error reading config file: {e}")
+    except KeyError:
+        print("The 'file_path' key was not found in the 'Paths' section.")
+    except FileNotFoundError:
+        print("The 'config.ini' file was not found.")
+else:
+    print("Error! either config.ini not found or source and path files are not within deNoiser directory ")
