@@ -120,7 +120,7 @@ if found_directory:
         print("deNoiser directory structure incorrect")
 
 else:
-    print(f"config.ini '{directory_name_to_find}' not found under the current working directory.")
+    print(f"config.ini for '{directory_name_to_find}' not found under the current working directory.")
     print("Please grant persmission to search system for the deNoiser's config if not done previously")
     root_directory = cwd # Replace with the directory to start searching from
     result = find_directory_in_tree(root_directory, directory_name_to_find)
