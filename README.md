@@ -3,7 +3,7 @@
 
 - Ensure you have Python 3+ downloaded.
 
-- Ensure pip installation for numpy, matplotlib, scikit-eimag, PyWavelets  prior to usage.
+- Ensure pip installation for numpy, matplotlib, scikit-image, PyWavelets  prior to usage.
 - .nef or Nikon Exchange Format files can't be used as source at this moment.
 
 - Pending tests for Canon Raw images.
