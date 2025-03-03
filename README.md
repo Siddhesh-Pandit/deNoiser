@@ -4,7 +4,7 @@
 - Ensure you have Python 3+ downloaded.
 
 - Ensure pip installation for numpy, matplotlib, scikit-image, PyWavelets  prior to usage.
-- .nef or Nikon Exchange Format files can't be used as source at this moment.
+- .raw or .nef files can't be used as source at this moment.
 
 - Pending tests for Canon Raw images.
 
@@ -24,18 +24,18 @@ python3 denoiserBatch.py
 
 ### Successful run looks like follows
 % python3 denoiserBatch.py
-input file path: /Users/siddhesh/Downloads/trial-dnoiser
-output file path: /Users/siddhesh/Downloads/deNoised
-processing:/Users/siddhesh/Downloads/trial-dnoiser/D85_8110_export.jpg
-processed gaussian filter image:/Users/siddhesh/Downloads/deNoised/D85_8110_export_gaussian.jpeg
-processed median filter image:/Users/siddhesh/Downloads/deNoised/D85_8110_export_median.jpeg
-processed nonlocal filter image:/Users/siddhesh/Downloads/deNoised/D85_8110_export_nonlocal.jpeg
-successfully processed:/Users/siddhesh/Downloads/trial-dnoiser/D85_8110_export.jpg
-processing:/Users/siddhesh/Downloads/trial-dnoiser/D85_8126.jpeg
-processed gaussian filter image:/Users/siddhesh/Downloads/deNoised/D85_8126_gaussian.jpeg
-processed median filter image:/Users/siddhesh/Downloads/deNoised/D85_8126_median.jpeg
-processed nonlocal filter image:/Users/siddhesh/Downloads/deNoised/D85_8126_nonlocal.jpeg
-successfully processed:/Users/siddhesh/Downloads/trial-dnoiser/D85_8126.jpeg
+input file path: /../../Downloads/trial-dnoiser
+output file path: /../..//Downloads/deNoised
+processing:/../../Downloads/trial-dnoiser/D85_8110_export.jpg
+processed gaussian filter image:/../../Downloads/deNoised/D85_8110_export_gaussian.jpeg
+processed median filter image:/../../Downloads/deNoised/D85_8110_export_median.jpeg
+processed nonlocal filter image:/../../Downloads/deNoised/D85_8110_export_nonlocal.jpeg
+successfully processed:/../../Downloads/trial-dnoiser/D85_8110_export.jpg
+processing:/../../Downloads/trial-dnoiser/D85_8126.jpeg
+processed gaussian filter image:/../../Downloads/deNoised/D85_8126_gaussian.jpeg
+processed median filter image:/../../Downloads/deNoised/D85_8126_median.jpeg
+processed nonlocal filter image:/../../Downloads/deNoised/D85_8126_nonlocal.jpeg
+successfully processed:/../../Downloads/trial-dnoiser/D85_8126.jpeg
 Successfully read 2 images.
 Exiting
 ```
