@@ -34,7 +34,7 @@ def read_images_from_folder_and_deNoise(folder_path, output_folder_path):
     images = []
 
     for filename in os.listdir(folder_path):
-        if filename.endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp')):
+        if filename.endswith(('.jpg','.JPG', '.jpeg','.JPEG', '.png','.PNG', '.gif','.GIF', '.bmp','.BMP')):
             img_path = os.path.join(folder_path, filename)
             img = io.imread(img_path)
             print(f"processing:{img_path}")
