@@ -196,12 +196,30 @@ class DenoiserGUI:
         self.process_btn.grid(row=row, column=0, columnspan=3, pady=10)
         row += 1
         
+        # Progress section
+        progress_frame = ttk.LabelFrame(main_frame, text="Progress", padding="5")
+        progress_frame.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        
+        # Current file label
+        self.progress_label = ttk.Label(progress_frame, text="Ready to process")
+        self.progress_label.pack(fill=tk.X, pady=(0, 5))
+        
+        # Progress bar
+        self.progress_bar = ttk.Progressbar(progress_frame, mode='determinate', length=400)
+        self.progress_bar.pack(fill=tk.X)
+        
+        # Percentage label
+        self.progress_percent = ttk.Label(progress_frame, text="0%")
+        self.progress_percent.pack(fill=tk.X, pady=(5, 0))
+        
+        row += 1
+        
         # Log output
         log_frame = ttk.LabelFrame(main_frame, text="Processing Log", padding="5")
         log_frame.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
         main_frame.rowconfigure(row, weight=1)
         
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=15, state='disabled', wrap=tk.WORD)
+        self.log_text = scrolledtext.ScrolledText(log_frame, height=12, state='disabled', wrap=tk.WORD)
         self.log_text.pack(fill=tk.BOTH, expand=True)
     
     def setup_logging(self):
@@ -344,9 +362,21 @@ class DenoiserGUI:
         self.process_btn.config(state='disabled', text="Processing...")
         self.processing = True
         
+        # Reset progress
+        self.progress_bar['value'] = 0
+        self.progress_percent.config(text="0%")
+        self.progress_label.config(text="Starting...")
+        
         # Start processing in thread
         thread = threading.Thread(target=self.process_images, daemon=True)
         thread.start()
+    
+    def update_progress(self, current, total, filename):
+        """Update progress bar and labels."""
+        progress = (current / total * 100) if total > 0 else 0
+        self.progress_bar['value'] = progress
+        self.progress_percent.config(text=f"{progress:.1f}%")
+        self.progress_label.config(text=f"Processing: {filename} ({current}/{total})")
     
     def process_images(self):
         """Process images (runs in separate thread)."""
@@ -355,25 +385,38 @@ class DenoiserGUI:
         try:
             config = self.create_config()
             
-            if self.input_files:
-                logger.info(f"Processing {len(self.input_files)} selected files")
+            # Store file list locally to avoid clearing during processing
+            files_to_process = self.input_files.copy() if self.input_files else []
+            
+            if files_to_process:
+                logger.info(f"Processing {len(files_to_process)} selected files")
                 logger.info(f"Output folder: {config.output_path}")
                 
-                # Process selected files directly
+                # Process selected files directly with progress callback
                 processor = ImageProcessor(config)
-                processed_count, metrics_list = processor.process_files(self.input_files)
+                processed_count, metrics_list = processor.process_files(
+                    files_to_process, 
+                    progress_callback=lambda c, t, f: self.root.after(0, lambda: self.update_progress(c, t, f))
+                )
             else:
                 logger.info(f"Input folder: {config.input_path}")
                 logger.info(f"Output folder: {config.output_path}")
                 
-                # Process entire folder
+                # Process entire folder with progress callback
                 processor = ImageProcessor(config)
-                processed_count, metrics_list = processor.process_batch()
+                processed_count, metrics_list = processor.process_batch(
+                    progress_callback=lambda c, t, f: self.root.after(0, lambda: self.update_progress(c, t, f))
+                )
             
             if processed_count > 0:
                 csv_file = save_metrics_to_csv(metrics_list, config.output_path)
                 logger.info(f"📊 Metrics saved to: {csv_file}")
                 logger.info(f"✓ Successfully processed {processed_count} images")
+                
+                # Update progress to complete
+                self.root.after(0, lambda: self.progress_bar.config(value=100))
+                self.root.after(0, lambda: self.progress_percent.config(text="100%"))
+                self.root.after(0, lambda: self.progress_label.config(text=f"Complete! Processed {processed_count} images"))
                 
                 self.root.after(0, lambda: messagebox.showinfo(
                     "Success", 
@@ -381,18 +424,21 @@ class DenoiserGUI:
                 ))
             else:
                 logger.warning("No images were processed")
+                self.root.after(0, lambda: self.progress_label.config(text="No images processed"))
                 self.root.after(0, lambda: messagebox.showwarning(
                     "Warning", 
                     "No images were processed. Check the log for details."
                 ))
         
         except Exception as e:
-            logger.error(f"Error: {e}")
-            self.root.after(0, lambda: messagebox.showerror("Error", f"An error occurred:\n{str(e)}"))
+            error_msg = str(e)
+            logger.error(f"Error: {error_msg}")
+            self.root.after(0, lambda: self.progress_label.config(text="Error occurred"))
+            self.root.after(0, lambda msg=error_msg: messagebox.showerror("Error", f"An error occurred:\n{msg}"))
         
         finally:
             self.processing = False
-            self.input_files = []  # Clear file selection
+            # Don't clear input_files - keep selection for successive runs
             self.root.after(0, lambda: self.process_btn.config(state='normal', text="Start Processing"))
     
 

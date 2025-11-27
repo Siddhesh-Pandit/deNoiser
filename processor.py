@@ -18,8 +18,11 @@ class ImageProcessor:
         self.config = config
         self.logger = logging.getLogger(__name__)
     
-    def process_batch(self):
+    def process_batch(self, progress_callback=None):
         """Process all images in input folder.
+        
+        Args:
+            progress_callback: Optional callback function(current, total, filename)
         
         Returns:
             Tuple of (processed_count, metrics_list)
@@ -55,6 +58,10 @@ class ImageProcessor:
         
         for idx, filename in enumerate(image_files, 1):
             try:
+                # Update progress if callback provided
+                if progress_callback:
+                    progress_callback(idx, total_files, filename)
+                
                 metrics = self._process_single_image(filename, idx, total_files)
                 metrics_list.append(metrics)
                 processed_count += 1
@@ -64,11 +71,12 @@ class ImageProcessor:
         
         return processed_count, metrics_list
     
-    def process_files(self, file_paths):
+    def process_files(self, file_paths, progress_callback=None):
         """Process specific image files.
         
         Args:
             file_paths: List of full file paths to process
+            progress_callback: Optional callback function(current, total, filename)
         
         Returns:
             Tuple of (processed_count, metrics_list)
@@ -98,6 +106,10 @@ class ImageProcessor:
         for idx, file_path in enumerate(file_paths, 1):
             filename = os.path.basename(file_path)
             try:
+                # Update progress if callback provided
+                if progress_callback:
+                    progress_callback(idx, total_files, filename)
+                
                 self.logger.info(f"[{idx}/{total_files}] Processing: {filename}")
                 
                 img = load_image(file_path, raw_mode=self.config.raw.processing_mode)
