@@ -78,10 +78,11 @@ def apply_nonlocal_means(image, h_multiplier=1.15, fast_mode=True,
                 channel_axis=None
             )
             
+            # denoise_nl_means returns float in [0, 1] range for uint8 input
             if image.dtype == np.uint16:
-                return (denoised * 256).astype(np.uint16)
+                return (denoised * 65535).astype(np.uint16)
             elif image.dtype == np.uint8:
-                return denoised.astype(np.uint8)
+                return (denoised * 255).astype(np.uint8)
             else:
                 return denoised
         
@@ -122,9 +123,12 @@ def apply_nonlocal_means(image, h_multiplier=1.15, fast_mode=True,
     )
     
     # Convert back to original dtype
+    # denoise_nl_means returns float in [0, 1] range for uint8 input
     if image.dtype == np.uint16:
-        return (denoised * 256).astype(np.uint16)
+        # If input was uint16, scale back up
+        return (denoised * 65535).astype(np.uint16)
     elif image.dtype == np.uint8:
-        return denoised.astype(np.uint8)
+        # If input was uint8, scale from [0, 1] to [0, 255]
+        return (denoised * 255).astype(np.uint8)
     else:
         return denoised
