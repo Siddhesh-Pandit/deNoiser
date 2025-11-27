@@ -40,6 +40,7 @@ class DenoiserGUI:
         self.output_path = tk.StringVar()
         self.output_format = tk.StringVar(value="png")
         self.jpeg_quality = tk.IntVar(value=95)
+        self.preserve_color = tk.BooleanVar(value=True)
         
         # Filter toggles
         self.enable_gaussian = tk.BooleanVar(value=True)
@@ -114,6 +115,9 @@ class DenoiserGUI:
         
         ttk.Label(output_frame, text="JPEG Quality:").grid(row=0, column=2, sticky=tk.W, padx=(20, 5))
         ttk.Spinbox(output_frame, from_=1, to=100, textvariable=self.jpeg_quality, width=10).grid(row=0, column=3, sticky=tk.W, padx=5)
+        
+        ttk.Checkbutton(output_frame, text="Preserve Color (denoise luminance only)", 
+                       variable=self.preserve_color).grid(row=1, column=0, columnspan=4, sticky=tk.W, padx=5, pady=5)
         
         row += 1
         
@@ -284,7 +288,8 @@ class DenoiserGUI:
         output = OutputConfig(
             format=self.output_format.get(),
             jpeg_quality=self.jpeg_quality.get(),
-            preserve_original_format=False
+            preserve_original_format=False,
+            preserve_color=self.preserve_color.get()
         )
         
         filters = FilterConfig(

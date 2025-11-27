@@ -11,6 +11,7 @@ class OutputConfig:
     format: str
     jpeg_quality: int
     preserve_original_format: bool
+    preserve_color: bool
 
 
 @dataclass
@@ -88,7 +89,8 @@ def load_config(config_path='config.ini'):
     output = OutputConfig(
         format=config.get('Output', 'format', fallback='png'),
         jpeg_quality=config.getint('Output', 'jpeg_quality', fallback=95),
-        preserve_original_format=config.getboolean('Output', 'preserve_original_format', fallback=False)
+        preserve_original_format=config.getboolean('Output', 'preserve_original_format', fallback=False),
+        preserve_color=config.getboolean('Output', 'preserve_color', fallback=True)
     )
     
     # Load filter toggles

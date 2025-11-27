@@ -74,6 +74,31 @@ The tool processes all images in your input folder and applies three different d
 
 Each filter creates a separate output file with metrics showing noise reduction percentage and PSNR (Peak Signal-to-Noise Ratio).
 
+## Key Features
+
+### Color Preservation Mode (Recommended)
+
+The tool includes an intelligent color preservation mode that denoises only the luminance (brightness) channel while keeping your colors vibrant and saturated.
+
+**How it works:**
+- Converts image to LAB color space
+- Denoises only the L (lightness) channel
+- Preserves A (green-red) and B (blue-yellow) channels
+- Converts back to RGB
+
+**Benefits:**
+- ✅ Maintains original saturation
+- ✅ Preserves color vibrancy and hue
+- ✅ Keeps contrast intact
+- ✅ Removes only luminance noise
+- ✅ Perfect for colorful photos
+
+**When to use:**
+- **Enable (default):** For photos with vibrant colors, portraits, landscapes
+- **Disable:** For grayscale images or when you want traditional full-color denoising
+
+Configure in `config.ini` under `[Output]` section or toggle in GUI.
+
 ## Configuration
 
 ### Output Settings
@@ -88,12 +113,16 @@ jpeg_quality = 95
 
 # Preserve original format instead of using format setting
 preserve_original_format = false
+
+# Preserve color: denoise only luminance, keeping saturation/hue intact
+preserve_color = true
 ```
 
 **Recommendations:**
 - Use `png` for best quality (default)
 - Use `jpg` with quality 90-95 for smaller file sizes
 - Set `preserve_original_format = true` to keep original extensions
+- Keep `preserve_color = true` to maintain vibrant colors (recommended)
 
 ### Filter Control
 
@@ -221,6 +250,9 @@ All formats are case-insensitive (e.g., .JPG, .Jpg, .jpg all work).
 
 ### 1. Light Noise (High ISO photos)
 ```ini
+[Output]
+preserve_color = true
+
 [GaussianFilter]
 sigma = 0.5
 
@@ -231,6 +263,9 @@ patch_size = 3
 
 ### 2. Moderate Noise (Scanned documents)
 ```ini
+[Output]
+preserve_color = true
+
 [GaussianFilter]
 sigma = 0.75
 
@@ -244,6 +279,9 @@ patch_size = 5
 
 ### 3. Heavy Noise (Low-light photos)
 ```ini
+[Output]
+preserve_color = true
+
 [GaussianFilter]
 sigma = 1.0
 
@@ -257,15 +295,43 @@ patch_distance = 9
 fast_mode = false
 ```
 
+### 4. Grayscale Images
+```ini
+[Output]
+preserve_color = false  # Disable for grayscale
+
+[GaussianFilter]
+sigma = 0.75
+
+[NonLocalMeans]
+h_multiplier = 1.15
+```
+
+### 5. Vibrant Color Photos (Portraits, Landscapes)
+```ini
+[Output]
+preserve_color = true  # Essential for color photos
+
+[GaussianFilter]
+sigma = 0.75
+
+[NonLocalMeans]
+h_multiplier = 1.0
+patch_size = 5
+```
+
 ## Tips & Best Practices
 
 1. **Start with defaults** - The default settings work well for most images
-2. **Compare results** - Check all three filtered versions to see which works best
-3. **Use metrics** - Higher PSNR usually means better quality
-4. **Batch test** - Try different settings on a few images before processing hundreds
-5. **Keep originals** - The tool never modifies your original images
-6. **PNG for quality** - Use PNG output for archival or further editing
-7. **Disable unused filters** - Speed up processing by disabling filters you don't need
+2. **Use color preservation** - Keep it enabled for vibrant, natural-looking results
+3. **Compare results** - Check all three filtered versions to see which works best
+4. **Use metrics** - Higher PSNR usually means better quality
+5. **Batch test** - Try different settings on a few images before processing hundreds
+6. **Keep originals** - The tool never modifies your original images
+7. **PNG for quality** - Use PNG output for archival or further editing
+8. **Disable unused filters** - Speed up processing by disabling filters you don't need
+9. **Color preservation for portraits** - Essential for maintaining skin tones
+10. **Disable for grayscale** - Turn off color preservation for black & white images
 
 ## Troubleshooting
 
@@ -305,11 +371,21 @@ fast_mode = false
 - Reduce sigma for Gaussian filter
 - Reduce h_multiplier for Non-local means
 - Use smaller median filter size
+- Ensure color preservation is enabled
 
 **Not enough noise removed**
 - Increase sigma for Gaussian filter
 - Increase h_multiplier for Non-local means
 - Use larger median filter size
+
+**Colors look washed out or desaturated**
+- Enable color preservation mode (`preserve_color = true`)
+- This is the default setting - check if it was accidentally disabled
+- Color preservation maintains original saturation and vibrancy
+
+**Grayscale images not processing well**
+- Disable color preservation for grayscale images
+- Color preservation is designed for RGB images
 
 ## Module Structure
 
@@ -319,6 +395,7 @@ The tool is organized into focused modules:
 - `config_loader.py` - Configuration management
 - `image_io.py` - Image loading/saving (includes RAW support)
 - `image_filters.py` - Filter implementations
+- `color_utils.py` - Color preservation utilities (LAB color space)
 - `metrics.py` - Metrics calculation
 - `processor.py` - Batch processing logic
 - `gui.py` - Graphical user interface

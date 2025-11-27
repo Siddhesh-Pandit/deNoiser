@@ -199,9 +199,9 @@ class ImageProcessor:
             try:
                 self._apply_and_save_filter(
                     img, img_float, filename, image_metrics,
-                    filter_func=lambda: apply_gaussian_filter(img, self.config.gaussian.sigma),
+                    filter_func=lambda: apply_gaussian_filter(img, self.config.gaussian.sigma, self.config.output.preserve_color),
                     filter_name='gaussian',
-                    filter_params=f"σ={self.config.gaussian.sigma}"
+                    filter_params=f"σ={self.config.gaussian.sigma}" + (" [color-preserving]" if self.config.output.preserve_color else "")
                 )
                 filters_succeeded += 1
             except Exception:
@@ -213,9 +213,9 @@ class ImageProcessor:
             try:
                 self._apply_and_save_filter(
                     img, img_float, filename, image_metrics,
-                    filter_func=lambda: apply_median_filter(img, self.config.median.size),
+                    filter_func=lambda: apply_median_filter(img, self.config.median.size, self.config.output.preserve_color),
                     filter_name='median',
-                    filter_params=f"size={self.config.median.size}"
+                    filter_params=f"size={self.config.median.size}" + (" [color-preserving]" if self.config.output.preserve_color else "")
                 )
                 filters_succeeded += 1
             except Exception:
@@ -232,10 +232,11 @@ class ImageProcessor:
                         self.config.nonlocal_means.h_multiplier,
                         self.config.nonlocal_means.fast_mode,
                         self.config.nonlocal_means.patch_size,
-                        self.config.nonlocal_means.patch_distance
+                        self.config.nonlocal_means.patch_distance,
+                        self.config.output.preserve_color
                     ),
                     filter_name='nonlocal',
-                    filter_params=f"h={self.config.nonlocal_means.h_multiplier}×σ"
+                    filter_params=f"h={self.config.nonlocal_means.h_multiplier}×σ" + (" [color-preserving]" if self.config.output.preserve_color else "")
                 )
                 filters_succeeded += 1
             except Exception:
