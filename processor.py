@@ -64,6 +64,113 @@ class ImageProcessor:
         
         return processed_count, metrics_list
     
+    def process_files(self, file_paths):
+        """Process specific image files.
+        
+        Args:
+            file_paths: List of full file paths to process
+        
+        Returns:
+            Tuple of (processed_count, metrics_list)
+        """
+        os.makedirs(self.config.output_path, exist_ok=True)
+        
+        self.logger.info(f"Output format: {self.config.output.format.upper()}" + 
+                        (f" (quality: {self.config.output.jpeg_quality})" 
+                         if self.config.output.format == 'jpg' else ""))
+        
+        # Log RAW support status
+        if is_rawpy_available():
+            self.logger.info(f"RAW support: Enabled (mode: {self.config.raw.processing_mode})")
+        else:
+            import sys
+            py_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+            self.logger.info(f"RAW support: Disabled (Python {py_version})")
+            if sys.version_info >= (3, 14):
+                self.logger.info("  Note: Python 3.14+ detected - rawpy not yet available")
+            else:
+                self.logger.info("  Install with: pip install rawpy")
+        
+        total_files = len(file_paths)
+        processed_count = 0
+        metrics_list = []
+        
+        for idx, file_path in enumerate(file_paths, 1):
+            filename = os.path.basename(file_path)
+            try:
+                self.logger.info(f"[{idx}/{total_files}] Processing: {filename}")
+                
+                img = load_image(file_path, raw_mode=self.config.raw.processing_mode)
+                img_float = normalize_image(img)
+                
+                image_metrics = {'filename': filename}
+                
+                filters_attempted = 0
+                filters_succeeded = 0
+                
+                # Apply Gaussian filter
+                if self.config.filters.enable_gaussian:
+                    filters_attempted += 1
+                    try:
+                        self._apply_and_save_filter(
+                            img, img_float, filename, image_metrics,
+                            filter_func=lambda: apply_gaussian_filter(img, self.config.gaussian.sigma),
+                            filter_name='gaussian',
+                            filter_params=f"σ={self.config.gaussian.sigma}"
+                        )
+                        filters_succeeded += 1
+                    except Exception:
+                        pass
+                
+                # Apply Median filter
+                if self.config.filters.enable_median:
+                    filters_attempted += 1
+                    try:
+                        self._apply_and_save_filter(
+                            img, img_float, filename, image_metrics,
+                            filter_func=lambda: apply_median_filter(img, self.config.median.size),
+                            filter_name='median',
+                            filter_params=f"size={self.config.median.size}"
+                        )
+                        filters_succeeded += 1
+                    except Exception:
+                        pass
+                
+                # Apply Non-local means
+                if self.config.filters.enable_nonlocal:
+                    filters_attempted += 1
+                    try:
+                        self._apply_and_save_filter(
+                            img, img_float, filename, image_metrics,
+                            filter_func=lambda: apply_nonlocal_means(
+                                img, 
+                                self.config.nonlocal_means.h_multiplier,
+                                self.config.nonlocal_means.fast_mode,
+                                self.config.nonlocal_means.patch_size,
+                                self.config.nonlocal_means.patch_distance
+                            ),
+                            filter_name='nonlocal',
+                            filter_params=f"h={self.config.nonlocal_means.h_multiplier}×σ"
+                        )
+                        filters_succeeded += 1
+                    except Exception:
+                        pass
+                
+                # Log summary for this image
+                if filters_succeeded == 0:
+                    self.logger.warning(f"  ⚠ All filters failed for {filename}")
+                elif filters_succeeded < filters_attempted:
+                    self.logger.info(f"  ℹ {filters_succeeded}/{filters_attempted} filters succeeded")
+                
+                metrics_list.append(image_metrics)
+                processed_count += 1
+                
+            except Exception as e:
+                self.logger.error(f"  ✗ Error processing {filename}: {str(e)}")
+                continue
+        
+        return processed_count, metrics_list
+    
     def _process_single_image(self, filename, idx, total):
         """Process a single image with all enabled filters.
         
@@ -83,38 +190,62 @@ class ImageProcessor:
         
         image_metrics = {'filename': filename}
         
+        filters_attempted = 0
+        filters_succeeded = 0
+        
         # Apply Gaussian filter
         if self.config.filters.enable_gaussian:
-            self._apply_and_save_filter(
-                img, img_float, filename, image_metrics,
-                filter_func=lambda: apply_gaussian_filter(img, self.config.gaussian.sigma),
-                filter_name='gaussian',
-                filter_params=f"σ={self.config.gaussian.sigma}"
-            )
+            filters_attempted += 1
+            try:
+                self._apply_and_save_filter(
+                    img, img_float, filename, image_metrics,
+                    filter_func=lambda: apply_gaussian_filter(img, self.config.gaussian.sigma),
+                    filter_name='gaussian',
+                    filter_params=f"σ={self.config.gaussian.sigma}"
+                )
+                filters_succeeded += 1
+            except Exception:
+                pass  # Error already logged in _apply_and_save_filter
         
         # Apply Median filter
         if self.config.filters.enable_median:
-            self._apply_and_save_filter(
-                img, img_float, filename, image_metrics,
-                filter_func=lambda: apply_median_filter(img, self.config.median.size),
-                filter_name='median',
-                filter_params=f"size={self.config.median.size}"
-            )
+            filters_attempted += 1
+            try:
+                self._apply_and_save_filter(
+                    img, img_float, filename, image_metrics,
+                    filter_func=lambda: apply_median_filter(img, self.config.median.size),
+                    filter_name='median',
+                    filter_params=f"size={self.config.median.size}"
+                )
+                filters_succeeded += 1
+            except Exception:
+                pass  # Error already logged in _apply_and_save_filter
         
         # Apply Non-local means
         if self.config.filters.enable_nonlocal:
-            self._apply_and_save_filter(
-                img, img_float, filename, image_metrics,
-                filter_func=lambda: apply_nonlocal_means(
-                    img, 
-                    self.config.nonlocal.h_multiplier,
-                    self.config.nonlocal.fast_mode,
-                    self.config.nonlocal.patch_size,
-                    self.config.nonlocal.patch_distance
-                ),
-                filter_name='nonlocal',
-                filter_params=f"h={self.config.nonlocal.h_multiplier}×σ"
-            )
+            filters_attempted += 1
+            try:
+                self._apply_and_save_filter(
+                    img, img_float, filename, image_metrics,
+                    filter_func=lambda: apply_nonlocal_means(
+                        img, 
+                        self.config.nonlocal_means.h_multiplier,
+                        self.config.nonlocal_means.fast_mode,
+                        self.config.nonlocal_means.patch_size,
+                        self.config.nonlocal_means.patch_distance
+                    ),
+                    filter_name='nonlocal',
+                    filter_params=f"h={self.config.nonlocal_means.h_multiplier}×σ"
+                )
+                filters_succeeded += 1
+            except Exception:
+                pass  # Error already logged in _apply_and_save_filter
+        
+        # Log summary for this image
+        if filters_succeeded == 0:
+            self.logger.warning(f"  ⚠ All filters failed for {filename}")
+        elif filters_succeeded < filters_attempted:
+            self.logger.info(f"  ℹ {filters_succeeded}/{filters_attempted} filters succeeded")
         
         return image_metrics
     
@@ -131,31 +262,51 @@ class ImageProcessor:
             filter_name: Name of filter for output
             filter_params: Parameter string for logging
         """
-        # Apply filter
-        filtered_img = filter_func()
-        
-        # Save filtered image
-        output_filename = get_output_filename(
-            filename, 
-            f"_{filter_name}", 
-            self.config.output.format,
-            self.config.output.preserve_original_format
-        )
-        output_path = os.path.join(self.config.output_path, output_filename)
-        save_image(output_path, filtered_img, self.config.output.format, 
-                  self.config.output.jpeg_quality)
-        
-        # Calculate metrics
-        filtered_float = normalize_image(filtered_img)
-        filter_metrics = calculate_noise_metrics(img_float, filtered_float)
-        
-        # Store metrics
-        metrics_dict[f'{filter_name}_noise_reduction'] = f"{filter_metrics['noise_reduction_pct']:.2f}%"
-        metrics_dict[f'{filter_name}_psnr'] = f"{filter_metrics['psnr']:.2f} dB"
-        
-        # Log results
-        self.logger.info(
-            f"  ✓ {filter_name.capitalize()} ({filter_params}): "
-            f"{filter_metrics['noise_reduction_pct']:.1f}% noise reduction, "
-            f"PSNR: {filter_metrics['psnr']:.2f} dB"
-        )
+        try:
+            # Apply filter
+            filtered_img = filter_func()
+            
+            # Save filtered image
+            output_filename = get_output_filename(
+                filename, 
+                f"_{filter_name}", 
+                self.config.output.format,
+                self.config.output.preserve_original_format
+            )
+            output_path = os.path.join(self.config.output_path, output_filename)
+            save_image(output_path, filtered_img, self.config.output.format, 
+                      self.config.output.jpeg_quality)
+            
+            # Calculate metrics
+            filtered_float = normalize_image(filtered_img)
+            filter_metrics = calculate_noise_metrics(img_float, filtered_float)
+            
+            # Store metrics
+            metrics_dict[f'{filter_name}_noise_reduction'] = f"{filter_metrics['noise_reduction_pct']:.2f}%"
+            metrics_dict[f'{filter_name}_psnr'] = f"{filter_metrics['psnr']:.2f} dB"
+            
+            # Log results
+            self.logger.info(
+                f"  ✓ {filter_name.capitalize()} ({filter_params}): "
+                f"{filter_metrics['noise_reduction_pct']:.1f}% noise reduction, "
+                f"PSNR: {filter_metrics['psnr']:.2f} dB"
+            )
+            
+        except Exception as e:
+            # Log filter-specific error
+            self.logger.error(f"  ✗ {filter_name.capitalize()} filter failed: {str(e)}")
+            
+            # Store N/A for failed filter metrics
+            metrics_dict[f'{filter_name}_noise_reduction'] = "N/A"
+            metrics_dict[f'{filter_name}_psnr'] = "N/A"
+            
+            # Provide helpful error messages based on error type
+            error_msg = str(e).lower()
+            if "data type" in error_msg or "dtype" in error_msg:
+                self.logger.error(f"    Hint: Image format incompatible with {filter_name} filter")
+            elif "memory" in error_msg or "allocation" in error_msg:
+                self.logger.error(f"    Hint: Image too large for {filter_name} filter, try reducing size")
+            elif "shape" in error_msg or "dimension" in error_msg:
+                self.logger.error(f"    Hint: Image dimensions incompatible with {filter_name} filter")
+            
+            # Don't raise - continue with other filters

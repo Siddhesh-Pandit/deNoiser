@@ -16,9 +16,23 @@ def normalize_image(image):
     Returns:
         Normalized image array
     """
+    # Ensure image is at least 2D
+    if image.ndim < 2:
+        raise ValueError(f"Image must be at least 2D, got shape {image.shape}")
+    
+    # Handle different data types
     if image.dtype == np.uint8:
         return image.astype(np.float64) / 255.0
-    return image.astype(np.float64)
+    elif image.dtype == np.uint16:
+        return image.astype(np.float64) / 65535.0
+    elif np.issubdtype(image.dtype, np.floating):
+        # Already float, ensure it's in [0, 1] range
+        if image.max() > 1.0:
+            return image.astype(np.float64) / image.max()
+        return image.astype(np.float64)
+    else:
+        # For other types, normalize by max value
+        return image.astype(np.float64) / image.max()
 
 
 def calculate_noise_metrics(original, denoised):

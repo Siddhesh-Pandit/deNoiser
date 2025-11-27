@@ -44,12 +44,43 @@ def apply_nonlocal_means(image, h_multiplier=1.15, fast_mode=True,
     Returns:
         Filtered image array
     """
-    sigma_est = np.mean(estimate_sigma(image, channel_axis=-1))
-    return denoise_nl_means(
-        image, 
+    # Ensure image is in correct format for denoise_nl_means
+    # It expects uint8 or float in [0, 1] range
+    if image.dtype == np.uint8:
+        img_for_denoise = image
+    elif image.dtype == np.uint16:
+        # Convert uint16 to uint8
+        img_for_denoise = (image / 256).astype(np.uint8)
+    elif np.issubdtype(image.dtype, np.floating):
+        # Ensure float is in [0, 1] range
+        if image.max() > 1.0:
+            img_for_denoise = image / image.max()
+        else:
+            img_for_denoise = image
+    else:
+        # Convert to uint8 as fallback
+        img_for_denoise = ((image - image.min()) / (image.max() - image.min()) * 255).astype(np.uint8)
+    
+    # Estimate sigma
+    if img_for_denoise.ndim == 3:
+        sigma_est = np.mean(estimate_sigma(img_for_denoise, channel_axis=-1))
+    else:
+        sigma_est = estimate_sigma(img_for_denoise)
+    
+    # Apply denoising
+    denoised = denoise_nl_means(
+        img_for_denoise, 
         h=h_multiplier * sigma_est, 
         fast_mode=fast_mode,
         patch_distance=patch_distance, 
         patch_size=patch_size, 
-        channel_axis=-1
+        channel_axis=-1 if img_for_denoise.ndim == 3 else None
     )
+    
+    # Convert back to original dtype
+    if image.dtype == np.uint16:
+        return (denoised * 256).astype(np.uint16)
+    elif image.dtype == np.uint8:
+        return denoised.astype(np.uint8)
+    else:
+        return denoised

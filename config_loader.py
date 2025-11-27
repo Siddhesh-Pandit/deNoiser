@@ -57,7 +57,7 @@ class DenoiserConfig:
     filters: FilterConfig
     gaussian: GaussianConfig
     median: MedianConfig
-    nonlocal: NonLocalMeansConfig
+    nonlocal_means: NonLocalMeansConfig
     raw: RAWConfig
 
 
@@ -107,7 +107,7 @@ def load_config(config_path='config.ini'):
         size=config.getint('MedianFilter', 'size', fallback=3)
     )
     
-    nonlocal = NonLocalMeansConfig(
+    nonlocal_means = NonLocalMeansConfig(
         h_multiplier=config.getfloat('NonLocalMeans', 'h_multiplier', fallback=1.15),
         fast_mode=config.getboolean('NonLocalMeans', 'fast_mode', fallback=True),
         patch_size=config.getint('NonLocalMeans', 'patch_size', fallback=5),
@@ -126,6 +126,6 @@ def load_config(config_path='config.ini'):
         filters=filters,
         gaussian=gaussian,
         median=median,
-        nonlocal=nonlocal,
+        nonlocal_means=nonlocal_means,
         raw=raw
     )

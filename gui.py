@@ -36,6 +36,7 @@ class DenoiserGUI:
         
         # Variables
         self.input_path = tk.StringVar()
+        self.input_files = []  # Store selected files
         self.output_path = tk.StringVar()
         self.output_format = tk.StringVar(value="png")
         self.jpeg_quality = tk.IntVar(value=95)
@@ -81,10 +82,15 @@ class DenoiserGUI:
         title.grid(row=row, column=0, columnspan=3, pady=(0, 10))
         row += 1
         
-        # Input folder
-        ttk.Label(main_frame, text="Input Folder:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        # Input selection
+        ttk.Label(main_frame, text="Input:").grid(row=row, column=0, sticky=tk.W, pady=5)
         ttk.Entry(main_frame, textvariable=self.input_path, width=50).grid(row=row, column=1, sticky=(tk.W, tk.E), pady=5)
-        ttk.Button(main_frame, text="Browse...", command=self.browse_input).grid(row=row, column=2, padx=(5, 0), pady=5)
+        
+        # Input buttons frame
+        input_btn_frame = ttk.Frame(main_frame)
+        input_btn_frame.grid(row=row, column=2, padx=(5, 0), pady=5)
+        ttk.Button(input_btn_frame, text="Folder", command=self.browse_folder, width=8).pack(side=tk.LEFT, padx=2)
+        ttk.Button(input_btn_frame, text="Files", command=self.browse_files, width=8).pack(side=tk.LEFT, padx=2)
         row += 1
         
         # Output folder
@@ -211,11 +217,32 @@ class DenoiserGUI:
         gui_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
         logger.addHandler(gui_handler)
     
-    def browse_input(self):
+    def browse_folder(self):
         """Browse for input folder."""
         folder = filedialog.askdirectory(title="Select Input Folder")
         if folder:
             self.input_path.set(folder)
+            self.input_files = []  # Clear file selection
+    
+    def browse_files(self):
+        """Browse for individual image files."""
+        files = filedialog.askopenfilenames(
+            title="Select Image Files",
+            filetypes=[
+                ("Image files", "*.jpg *.jpeg *.png *.gif *.bmp *.tiff *.tif *.nef *.cr2 *.cr3 *.arw *.dng *.raf *.orf *.rw2 *.raw"),
+                ("JPEG files", "*.jpg *.jpeg"),
+                ("PNG files", "*.png"),
+                ("TIFF files", "*.tiff *.tif"),
+                ("RAW files", "*.nef *.cr2 *.cr3 *.arw *.dng *.raf *.orf *.rw2 *.raw"),
+                ("All files", "*.*")
+            ]
+        )
+        if files:
+            self.input_files = list(files)
+            if len(files) == 1:
+                self.input_path.set(files[0])
+            else:
+                self.input_path.set(f"{len(files)} files selected")
     
     def browse_output(self):
         """Browse for output folder."""
@@ -226,16 +253,25 @@ class DenoiserGUI:
     def validate_inputs(self):
         """Validate user inputs."""
         if not self.input_path.get():
-            messagebox.showerror("Error", "Please select an input folder")
+            messagebox.showerror("Error", "Please select input (folder or files)")
             return False
         
         if not self.output_path.get():
             messagebox.showerror("Error", "Please select an output folder")
             return False
         
-        if not os.path.exists(self.input_path.get()):
-            messagebox.showerror("Error", "Input folder does not exist")
-            return False
+        # Validate input exists
+        if self.input_files:
+            # Check if selected files exist
+            for file in self.input_files:
+                if not os.path.exists(file):
+                    messagebox.showerror("Error", f"File does not exist: {os.path.basename(file)}")
+                    return False
+        else:
+            # Check if folder exists
+            if not os.path.exists(self.input_path.get()):
+                messagebox.showerror("Error", "Input folder does not exist")
+                return False
         
         if not (self.enable_gaussian.get() or self.enable_median.get() or self.enable_nonlocal.get()):
             messagebox.showerror("Error", "Please enable at least one filter")
@@ -260,7 +296,7 @@ class DenoiserGUI:
         gaussian = GaussianConfig(sigma=self.gaussian_sigma.get())
         median = MedianConfig(size=self.median_size.get())
         
-        nonlocal = NonLocalMeansConfig(
+        nonlocal_means = NonLocalMeansConfig(
             h_multiplier=self.nl_h_multiplier.get(),
             fast_mode=self.nl_fast_mode.get(),
             patch_size=self.nl_patch_size.get(),
@@ -271,14 +307,20 @@ class DenoiserGUI:
             processing_mode=self.raw_mode.get()
         )
         
+        # Use folder path or first file's directory
+        if self.input_files:
+            input_path = os.path.dirname(self.input_files[0])
+        else:
+            input_path = self.input_path.get()
+        
         return DenoiserConfig(
-            input_path=self.input_path.get(),
+            input_path=input_path,
             output_path=self.output_path.get(),
             output=output,
             filters=filters,
             gaussian=gaussian,
             median=median,
-            nonlocal=nonlocal,
+            nonlocal_means=nonlocal_means,
             raw=raw
         )
     
@@ -311,11 +353,20 @@ class DenoiserGUI:
         try:
             config = self.create_config()
             
-            logger.info(f"Input folder: {config.input_path}")
-            logger.info(f"Output folder: {config.output_path}")
-            
-            processor = ImageProcessor(config)
-            processed_count, metrics_list = processor.process_batch()
+            if self.input_files:
+                logger.info(f"Processing {len(self.input_files)} selected files")
+                logger.info(f"Output folder: {config.output_path}")
+                
+                # Process selected files directly
+                processor = ImageProcessor(config)
+                processed_count, metrics_list = processor.process_files(self.input_files)
+            else:
+                logger.info(f"Input folder: {config.input_path}")
+                logger.info(f"Output folder: {config.output_path}")
+                
+                # Process entire folder
+                processor = ImageProcessor(config)
+                processed_count, metrics_list = processor.process_batch()
             
             if processed_count > 0:
                 csv_file = save_metrics_to_csv(metrics_list, config.output_path)
@@ -339,6 +390,7 @@ class DenoiserGUI:
         
         finally:
             self.processing = False
+            self.input_files = []  # Clear file selection
             self.root.after(0, lambda: self.process_btn.config(state='normal', text="Start Processing"))
     
 
