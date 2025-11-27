@@ -17,12 +17,29 @@ A powerful batch image denoising tool with GUI and CLI interfaces. Applies multi
 
 ## 🚀 Quick Start
 
-### Windows Users - Standalone Executable (No Python Required!)
+### Standalone Installers (No Python Required!)
 
-1. **Download** `ImageDenoiser.exe` from [Releases](../../releases)
-2. **Double-click** to run - that's it!
+**Windows:**
+1. Download `ImageDenoiser.exe` from [Releases](../../releases)
+2. Double-click to run
 
-No installation, no Python, no dependencies needed.
+**macOS:**
+1. Download `ImageDenoiser-Installer.dmg` from [Releases](../../releases)
+2. Open DMG and drag to Applications
+3. Launch from Applications folder
+
+**Linux:**
+- **AppImage** (Universal): Download, make executable, run
+  ```bash
+  chmod +x ImageDenoiser-x86_64.AppImage
+  ./ImageDenoiser-x86_64.AppImage
+  ```
+- **Debian/Ubuntu**: Download and install .deb package
+  ```bash
+  sudo dpkg -i imagedenoiser_2.0.0_amd64.deb
+  ```
+
+No installation, no Python, no dependencies needed!
 
 ### For Developers - Run from Source
 
@@ -65,9 +82,12 @@ python gui.py
 python denoiserBatch.py
 ```
 
-### Building Windows Installer
+### Building Installers
 
-See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for creating a standalone executable.
+See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for creating standalone executables for all platforms:
+- Windows: `.exe` executable
+- macOS: `.app` bundle and `.dmg` installer
+- Linux: AppImage and `.deb` package
 
 ## 📖 Documentation
 

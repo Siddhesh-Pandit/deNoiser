@@ -150,3 +150,157 @@ This creates a professional installer with uninstaller, Start Menu shortcuts, an
 - Test the executable on a clean Windows system without Python
 - The first run may be slower as Windows scans the executable
 - Consider creating both 32-bit and 64-bit versions for maximum compatibility
+
+---
+
+# Building macOS Installer
+
+## Prerequisites
+
+1. **macOS** system
+2. **Python 3.8-3.13** installed
+3. **Homebrew** (for create-dmg): https://brew.sh
+
+## Quick Build
+
+### Step 1: Build the Application
+
+```bash
+chmod +x build_installer.sh
+./build_installer.sh
+```
+
+This creates `dist/ImageDenoiser.app`
+
+### Step 2: Create DMG Installer (Optional)
+
+```bash
+chmod +x create_dmg.sh
+./create_dmg.sh
+```
+
+This creates `dist/ImageDenoiser-Installer.dmg`
+
+## Output
+
+- **ImageDenoiser.app** - macOS application bundle
+- **ImageDenoiser-Installer.dmg** - Drag-to-install DMG
+
+## Distribution
+
+Users can:
+1. Open the DMG
+2. Drag ImageDenoiser to Applications folder
+3. Launch from Applications
+
+## Code Signing (Recommended)
+
+For distribution outside the App Store:
+
+```bash
+# Sign the app
+codesign --deep --force --verify --verbose --sign "Developer ID Application: Your Name" dist/ImageDenoiser.app
+
+# Notarize with Apple
+xcrun notarytool submit dist/ImageDenoiser-Installer.dmg --apple-id your@email.com --password app-specific-password --team-id TEAMID
+```
+
+This removes Gatekeeper warnings.
+
+---
+
+# Building Linux Installer
+
+## Prerequisites
+
+1. **Linux** system (Ubuntu, Debian, Fedora, etc.)
+2. **Python 3.8-3.13** installed
+
+## Quick Build
+
+### Option 1: AppImage (Universal)
+
+```bash
+chmod +x build_installer.sh
+./build_installer.sh
+
+chmod +x create_appimage.sh
+./create_appimage.sh
+```
+
+Creates: `dist/ImageDenoiser-x86_64.AppImage`
+
+**Benefits:**
+- Works on all Linux distributions
+- No installation required
+- Single file distribution
+
+### Option 2: Debian Package (.deb)
+
+```bash
+chmod +x build_installer.sh
+./build_installer.sh
+
+chmod +x create_deb.sh
+./create_deb.sh
+```
+
+Creates: `dist/imagedenoiser_2.0.0_amd64.deb`
+
+**Benefits:**
+- Integrates with system package manager
+- Automatic updates via apt
+- Desktop menu integration
+
+## Distribution
+
+### AppImage
+Users simply:
+```bash
+chmod +x ImageDenoiser-x86_64.AppImage
+./ImageDenoiser-x86_64.AppImage
+```
+
+### Debian Package
+Users install with:
+```bash
+sudo dpkg -i imagedenoiser_2.0.0_amd64.deb
+```
+
+Or double-click in file manager.
+
+## Creating RPM Package (Fedora/RHEL)
+
+For RPM-based distributions:
+
+```bash
+# Install rpmbuild
+sudo dnf install rpm-build
+
+# Create RPM structure
+mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+
+# Create spec file (see online guides)
+# Build RPM
+rpmbuild -ba imagedenoiser.spec
+```
+
+---
+
+# Cross-Platform Build Summary
+
+| Platform | Command | Output | Size |
+|----------|---------|--------|------|
+| Windows | `build_installer.bat` | ImageDenoiser.exe | ~150 MB |
+| macOS | `./build_installer.sh` + `./create_dmg.sh` | ImageDenoiser-Installer.dmg | ~180 MB |
+| Linux (AppImage) | `./build_installer.sh` + `./create_appimage.sh` | ImageDenoiser-x86_64.AppImage | ~170 MB |
+| Linux (Debian) | `./build_installer.sh` + `./create_deb.sh` | imagedenoiser_2.0.0_amd64.deb | ~150 MB |
+
+## Tips for All Platforms
+
+1. **Test on clean systems** without Python installed
+2. **Include README** and documentation
+3. **Add application icon** for professional appearance
+4. **Sign executables** to avoid security warnings
+5. **Create checksums** (SHA256) for downloads
+6. **Provide installation instructions** for each platform
