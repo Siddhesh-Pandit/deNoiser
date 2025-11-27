@@ -50,16 +50,13 @@ class DenoiserGUI:
         # Filter parameters
         self.gaussian_sigma = tk.DoubleVar(value=0.75)
         self.median_size = tk.IntVar(value=3)
-        self.nl_h_multiplier = tk.DoubleVar(value=1.15)
+        self.nl_h_multiplier = tk.DoubleVar(value=0.8)
         self.nl_fast_mode = tk.BooleanVar(value=True)
         self.nl_patch_size = tk.IntVar(value=5)
-        self.nl_patch_distance = tk.IntVar(value=6)
+        self.nl_patch_distance = tk.IntVar(value=11)
         
         # RAW processing mode
         self.raw_mode = tk.StringVar(value="half")
-        self.nl_fast_mode = tk.BooleanVar(value=True)
-        self.nl_patch_size = tk.IntVar(value=5)
-        self.nl_patch_distance = tk.IntVar(value=6)
         
         self.processing = False
         

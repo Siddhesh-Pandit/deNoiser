@@ -110,10 +110,10 @@ def load_config(config_path='config.ini'):
     )
     
     nonlocal_means = NonLocalMeansConfig(
-        h_multiplier=config.getfloat('NonLocalMeans', 'h_multiplier', fallback=1.15),
+        h_multiplier=config.getfloat('NonLocalMeans', 'h_multiplier', fallback=0.8),
         fast_mode=config.getboolean('NonLocalMeans', 'fast_mode', fallback=True),
         patch_size=config.getint('NonLocalMeans', 'patch_size', fallback=5),
-        patch_distance=config.getint('NonLocalMeans', 'patch_distance', fallback=6)
+        patch_distance=config.getint('NonLocalMeans', 'patch_distance', fallback=11)
     )
     
     # Load RAW processing settings

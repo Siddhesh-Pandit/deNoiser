@@ -166,8 +166,8 @@ size = 3
 
 ```ini
 [NonLocalMeans]
-# h_multiplier (0.8-1.5, higher = more denoising)
-h_multiplier = 1.15
+# h_multiplier (0.6-1.5, higher = more denoising but may blur)
+h_multiplier = 0.8
 
 # fast_mode (true/false, true is faster but slightly lower quality)
 fast_mode = true
@@ -176,14 +176,16 @@ fast_mode = true
 patch_size = 5
 
 # patch_distance (5-13 - search area for similar patches)
-patch_distance = 6
+patch_distance = 11
 ```
 
 **Tuning guide:**
-- **Light noise:** h_multiplier=0.8-1.0, patch_size=3, patch_distance=5
-- **Moderate noise:** h_multiplier=1.15, patch_size=5, patch_distance=6 (default)
-- **Heavy noise:** h_multiplier=1.3-1.5, patch_size=7, patch_distance=9
+- **Light noise (preserve detail):** h_multiplier=0.6-0.8, patch_size=3, patch_distance=11
+- **Moderate noise (balanced):** h_multiplier=0.8-1.0, patch_size=5, patch_distance=11 (default)
+- **Heavy noise (aggressive):** h_multiplier=1.2-1.5, patch_size=7, patch_distance=13
 - Set `fast_mode=false` for highest quality (slower)
+
+**Important:** Lower h_multiplier values preserve sharpness better. Start low and increase only if noise remains.
 
 ## Output Files
 
@@ -273,8 +275,9 @@ sigma = 0.75
 size = 3
 
 [NonLocalMeans]
-h_multiplier = 1.15
+h_multiplier = 0.9
 patch_size = 5
+patch_distance = 11
 ```
 
 ### 3. Heavy Noise (Low-light photos)
@@ -316,8 +319,9 @@ preserve_color = true  # Essential for color photos
 sigma = 0.75
 
 [NonLocalMeans]
-h_multiplier = 1.0
+h_multiplier = 0.7  # Lower to preserve detail
 patch_size = 5
+patch_distance = 11
 ```
 
 ## Tips & Best Practices
