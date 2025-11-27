@@ -17,7 +17,16 @@ A powerful batch image denoising tool with GUI and CLI interfaces. Applies multi
 
 ## 🚀 Quick Start
 
-### 1. Install Dependencies
+### Windows Users - Standalone Executable (No Python Required!)
+
+1. **Download** `ImageDenoiser.exe` from [Releases](../../releases)
+2. **Double-click** to run - that's it!
+
+No installation, no Python, no dependencies needed.
+
+### For Developers - Run from Source
+
+#### 1. Install Dependencies
 
 **Windows:**
 ```bash
@@ -35,7 +44,7 @@ chmod +x install_dependencies.sh
 pip install -r requirements.txt
 ```
 
-### 2. Run the Application
+#### 2. Run the Application
 
 **GUI Mode (Recommended):**
 ```bash
@@ -55,6 +64,10 @@ python gui.py
 # Edit config.ini first, then:
 python denoiserBatch.py
 ```
+
+### Building Windows Installer
+
+See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for creating a standalone executable.
 
 ## 📖 Documentation
 
@@ -112,16 +125,20 @@ The tool generates:
 
 ```
 image-denoiser/
-├── gui.py                    # GUI application
-├── denoiserBatch.py         # CLI entry point
-├── config_loader.py         # Configuration management
-├── image_io.py              # Image I/O operations
-├── image_filters.py         # Filter implementations
-├── metrics.py               # Metrics calculation
-├── processor.py             # Batch processing logic
-├── config.ini               # Configuration file
-├── requirements.txt         # Dependencies
-└── USAGE.md                 # User guide
+├── gui.py                      # GUI application
+├── denoiserBatch.py           # CLI entry point
+├── config_loader.py           # Configuration management
+├── image_io.py                # Image I/O operations
+├── image_filters.py           # Filter implementations
+├── color_utils.py             # Color preservation utilities
+├── metrics.py                 # Metrics calculation
+├── processor.py               # Batch processing logic
+├── config.ini                 # Configuration file
+├── requirements.txt           # Dependencies
+├── USAGE.md                   # User guide
+├── BUILD_INSTRUCTIONS.md      # Build standalone executable
+├── build_installer.bat        # Windows installer builder
+└── ImageDenoiser.spec         # PyInstaller configuration
 ```
 
 ## 📷 RAW Format Support
