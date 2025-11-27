@@ -42,8 +42,8 @@ class DenoiserGUI:
         self.jpeg_quality = tk.IntVar(value=95)
         self.preserve_color = tk.BooleanVar(value=True)
         self.apply_sharpening = tk.BooleanVar(value=False)
-        self.sharpen_amount = tk.DoubleVar(value=0.5)
-        self.sharpen_radius = tk.DoubleVar(value=1.0)
+        self.sharpen_amount = tk.DoubleVar(value=1.2)
+        self.sharpen_radius = tk.DoubleVar(value=1.5)
         
         # Filter toggles
         self.enable_gaussian = tk.BooleanVar(value=True)
@@ -433,6 +433,10 @@ class DenoiserGUI:
                 self.root.after(0, lambda: self.progress_bar.config(value=100))
                 self.root.after(0, lambda: self.progress_percent.config(text="100%"))
                 self.root.after(0, lambda: self.progress_label.config(text=f"Complete! Processed {processed_count} images"))
+                
+                # Brief pause to show completion before dialog (1 second)
+                import time
+                time.sleep(1)
                 
                 self.root.after(0, lambda: messagebox.showinfo(
                     "Success", 

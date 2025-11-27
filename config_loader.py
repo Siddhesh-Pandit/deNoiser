@@ -95,8 +95,8 @@ def load_config(config_path='config.ini'):
         preserve_original_format=config.getboolean('Output', 'preserve_original_format', fallback=False),
         preserve_color=config.getboolean('Output', 'preserve_color', fallback=True),
         apply_sharpening=config.getboolean('Output', 'apply_sharpening', fallback=False),
-        sharpen_amount=config.getfloat('Output', 'sharpen_amount', fallback=0.5),
-        sharpen_radius=config.getfloat('Output', 'sharpen_radius', fallback=1.0)
+        sharpen_amount=config.getfloat('Output', 'sharpen_amount', fallback=1.2),
+        sharpen_radius=config.getfloat('Output', 'sharpen_radius', fallback=1.5)
     )
     
     # Load filter toggles
