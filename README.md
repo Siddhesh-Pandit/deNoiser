@@ -98,10 +98,15 @@ The tool generates:
 
 ## 📋 Requirements
 
-- Python 3.7+
+**Core Requirements:**
+- Python 3.8 - 3.13 (recommended: 3.10, 3.11, or 3.12)
 - NumPy
 - scikit-image
 - SciPy
+
+**Optional (for RAW support):**
+- rawpy (requires Python 3.8 - 3.13)
+- Note: Python 3.14+ not yet supported by rawpy
 
 ## 🏗️ Project Structure
 
@@ -121,7 +126,7 @@ image-denoiser/
 
 ## 📷 RAW Format Support
 
-The tool now supports RAW image formats from major camera manufacturers:
+The tool supports RAW image formats from major camera manufacturers:
 - Nikon (.nef)
 - Canon (.cr2, .cr3)
 - Sony (.arw)
@@ -130,12 +135,36 @@ The tool now supports RAW image formats from major camera manufacturers:
 - Olympus (.orf)
 - Panasonic (.rw2)
 
-**Installation:**
+### Python Version Requirements for RAW
+
+**RAW support requires:**
+- Python 3.8 - 3.13 (rawpy library limitation)
+- Recommended: Python 3.10, 3.11, or 3.12
+
+**Not supported:**
+- Python 3.14+ (rawpy not yet available)
+- Python 3.7 and below (deprecated)
+
+### Installation
+
+**Automatic (during setup):**
+```bash
+python install_dependencies.py
+# Will attempt to install rawpy automatically
+```
+
+**Manual installation:**
 ```bash
 pip install rawpy
 ```
 
-**Processing Modes:**
+**If you're on Python 3.14+:**
+- RAW support won't be available
+- Tool works perfectly with JPEG, PNG, TIFF, BMP, GIF
+- Consider using Python 3.12 if you need RAW support
+
+### Processing Modes
+
 - `full` - Full resolution (best quality, slowest)
 - `half` - Half resolution (balanced, recommended)
 - `preview` - Embedded JPEG (fastest, lower quality)
@@ -144,8 +173,9 @@ Configure in `config.ini` under `[RAW]` section or select in GUI.
 
 ## ⚠️ Limitations
 
-- RAW processing requires additional `rawpy` library (optional)
-- RAW files take significantly longer to process
+- **RAW processing** requires `rawpy` library (optional, Python 3.8-3.13 only)
+- **Python 3.14+** users cannot use RAW support (rawpy not yet available)
+- RAW files take significantly longer to process than standard formats
 - Processing time varies with image size and filter settings
 - Non-local means filter is computationally intensive
 

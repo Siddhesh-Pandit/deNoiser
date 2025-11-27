@@ -34,11 +34,21 @@ class ImageProcessor:
         if is_rawpy_available():
             self.logger.info(f"RAW support: Enabled (mode: {self.config.raw.processing_mode})")
         else:
-            self.logger.info("RAW support: Disabled (install rawpy to enable)")
+            import sys
+            py_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+            self.logger.info(f"RAW support: Disabled (Python {py_version})")
+            if sys.version_info >= (3, 14):
+                self.logger.info("  Note: Python 3.14+ detected - rawpy not yet available")
+            else:
+                self.logger.info("  Install with: pip install rawpy")
         
         image_files = get_image_files(self.config.input_path)
         total_files = len(image_files)
-        self.logger.info(f"Found {total_files} images to process")
+        
+        if total_files == 0:
+            self.logger.warning("No supported images found in input folder")
+        else:
+            self.logger.info(f"Found {total_files} images to process")
         
         processed_count = 0
         metrics_list = []

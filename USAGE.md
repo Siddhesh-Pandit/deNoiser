@@ -2,6 +2,16 @@
 
 A batch image denoising tool that applies multiple noise reduction filters and provides quality metrics.
 
+## System Requirements
+
+**Python Version:**
+- Python 3.8 - 3.13 (recommended: 3.10, 3.11, or 3.12)
+- Python 3.14+ will work but **without RAW format support**
+
+**Dependencies:**
+- NumPy, scikit-image, SciPy (required)
+- rawpy (optional, for RAW formats - requires Python 3.8-3.13)
+
 ## Quick Start
 
 ### Option 1: GUI Mode (Recommended for Beginners)
@@ -178,13 +188,34 @@ A timestamped CSV file (e.g., `denoising_metrics_20251127_143022.csv`) containin
 
 ## Supported Image Formats
 
+**Standard Formats (always supported):**
 - JPEG (.jpg, .jpeg)
 - PNG (.png)
 - TIFF (.tiff, .tif)
 - BMP (.bmp)
 - GIF (.gif)
 
+**RAW Formats (requires rawpy + Python 3.8-3.13):**
+- Nikon (.nef)
+- Canon (.cr2, .cr3)
+- Sony (.arw)
+- Adobe (.dng)
+- Fujifilm (.raf)
+- Olympus (.orf)
+- Panasonic (.rw2)
+
 All formats are case-insensitive (e.g., .JPG, .Jpg, .jpg all work).
+
+### RAW Format Notes
+
+**If you have Python 3.8-3.13:**
+- RAW support will be installed automatically
+- Configure processing mode in `[RAW]` section of config.ini
+
+**If you have Python 3.14+:**
+- RAW formats are not supported (rawpy not available yet)
+- All standard formats work perfectly
+- Consider using Python 3.12 if you need RAW support
 
 ## Example Workflow
 
@@ -249,10 +280,25 @@ fast_mode = false
 - Verify your input folder contains supported image formats
 - Check file extensions are correct
 
+**"rawpy is not installed" or RAW files skipped**
+- Check your Python version: `python --version`
+- If Python 3.14+: RAW support not available, use Python 3.8-3.13
+- If Python 3.8-3.13: Install rawpy manually: `pip install rawpy`
+- Tool works fine without RAW support for standard formats
+
+**"Could not find a version that satisfies the requirement rawpy"**
+- You're likely on Python 3.14+ or 3.7-
+- RAW support requires Python 3.8-3.13
+- Options:
+  1. Use standard formats (JPEG, PNG, etc.) - works perfectly
+  2. Install Python 3.12 for RAW support
+  3. Wait for rawpy to support your Python version
+
 **Processing is slow**
 - Disable filters you don't need
 - Set `fast_mode = true` for Non-local means
 - Reduce `patch_distance` and `patch_size` for Non-local means
+- For RAW files, use `processing_mode = half` or `preview`
 - Process fewer images at once
 
 **Output images look blurry**
@@ -271,11 +317,23 @@ The tool is organized into focused modules:
 
 - `denoiserBatch.py` - Main entry point
 - `config_loader.py` - Configuration management
-- `image_io.py` - Image loading/saving
+- `image_io.py` - Image loading/saving (includes RAW support)
 - `image_filters.py` - Filter implementations
 - `metrics.py` - Metrics calculation
 - `processor.py` - Batch processing logic
+- `gui.py` - Graphical user interface
+
+## Python Version Compatibility
+
+| Python Version | Core Features | RAW Support |
+|---------------|---------------|-------------|
+| 3.7 and below | ❌ Not supported | ❌ |
+| 3.8 - 3.13 | ✅ Full support | ✅ Available |
+| 3.14+ | ✅ Full support | ❌ Not yet available |
+
+**Recommended:** Python 3.10, 3.11, or 3.12 for full feature support.
 
 ## License & Credits
 
 Uses scikit-image for image processing algorithms.
+RAW support powered by rawpy (LibRaw wrapper).

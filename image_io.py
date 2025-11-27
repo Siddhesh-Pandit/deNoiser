@@ -1,5 +1,6 @@
 """Image input/output utilities."""
 import os
+import sys
 import logging
 from skimage import io
 import numpy as np
@@ -40,15 +41,24 @@ def get_image_files(folder_path):
     if not os.path.exists(folder_path):
         raise FileNotFoundError(f"Folder not found: {folder_path}")
     
-    files = [f for f in os.listdir(folder_path) 
-            if os.path.splitext(f.lower())[1] in SUPPORTED_EXTENSIONS]
+    all_files = [f for f in os.listdir(folder_path) 
+                 if os.path.splitext(f.lower())[1] in SUPPORTED_EXTENSIONS]
     
-    # Log RAW file detection
-    raw_files = [f for f in files if os.path.splitext(f.lower())[1] in RAW_EXTENSIONS]
+    # Check for RAW files
+    raw_files = [f for f in all_files if os.path.splitext(f.lower())[1] in RAW_EXTENSIONS]
+    
     if raw_files and not RAWPY_AVAILABLE:
-        logger.warning(f"Found {len(raw_files)} RAW files but rawpy is not installed. Install with: pip install rawpy")
+        logger.warning(f"Found {len(raw_files)} RAW files but rawpy is not installed.")
+        logger.warning(f"RAW files will be skipped. To enable RAW support:")
+        logger.warning(f"  - Requires Python 3.8-3.13 (you have {sys.version.split()[0]})")
+        logger.warning(f"  - Install with: pip install rawpy")
+        
+        # Filter out RAW files if rawpy is not available
+        files = [f for f in all_files if os.path.splitext(f.lower())[1] not in RAW_EXTENSIONS]
+        logger.info(f"Skipping {len(raw_files)} RAW files, processing {len(files)} standard format images")
+        return files
     
-    return files
+    return all_files
 
 
 def load_image(file_path, raw_mode='full'):

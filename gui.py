@@ -8,6 +8,7 @@ import logging
 from config_loader import DenoiserConfig, OutputConfig, FilterConfig, GaussianConfig, MedianConfig, NonLocalMeansConfig, RAWConfig
 from processor import ImageProcessor
 from metrics import save_metrics_to_csv
+from image_io import is_rawpy_available
 
 
 class TextHandler(logging.Handler):
@@ -153,14 +154,29 @@ class DenoiserGUI:
         row += 1
         
         # RAW settings
-        raw_frame = ttk.LabelFrame(main_frame, text="RAW Image Settings", padding="5")
+        raw_available = is_rawpy_available()
+        py_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+        
+        if raw_available:
+            raw_title = "RAW Image Settings (Enabled)"
+        else:
+            raw_title = f"RAW Image Settings (Disabled - Python {py_version})"
+        
+        raw_frame = ttk.LabelFrame(main_frame, text=raw_title, padding="5")
         raw_frame.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
         
-        ttk.Label(raw_frame, text="Processing Mode:").grid(row=0, column=0, sticky=tk.W, padx=5)
-        raw_combo = ttk.Combobox(raw_frame, textvariable=self.raw_mode, 
-                                values=["full", "half", "preview"], state="readonly", width=15)
-        raw_combo.grid(row=0, column=1, sticky=tk.W, padx=5)
-        ttk.Label(raw_frame, text="(full=best quality/slow, half=balanced, preview=fast/lower quality)").grid(row=0, column=2, sticky=tk.W, padx=5)
+        if raw_available:
+            ttk.Label(raw_frame, text="Processing Mode:").grid(row=0, column=0, sticky=tk.W, padx=5)
+            raw_combo = ttk.Combobox(raw_frame, textvariable=self.raw_mode, 
+                                    values=["full", "half", "preview"], state="readonly", width=15)
+            raw_combo.grid(row=0, column=1, sticky=tk.W, padx=5)
+            ttk.Label(raw_frame, text="(full=best quality/slow, half=balanced, preview=fast/lower quality)").grid(row=0, column=2, sticky=tk.W, padx=5)
+        else:
+            if sys.version_info >= (3, 14):
+                msg = f"RAW support requires Python 3.8-3.13 (you have {py_version}). RAW files will be skipped."
+            else:
+                msg = f"Install rawpy for RAW support: pip install rawpy (Python {py_version})"
+            ttk.Label(raw_frame, text=msg, foreground="gray").grid(row=0, column=0, columnspan=3, sticky=tk.W, padx=5)
         
         row += 1
         
