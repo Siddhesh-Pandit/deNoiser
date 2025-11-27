@@ -119,9 +119,33 @@ image-denoiser/
 └── USAGE.md                 # User guide
 ```
 
+## 📷 RAW Format Support
+
+The tool now supports RAW image formats from major camera manufacturers:
+- Nikon (.nef)
+- Canon (.cr2, .cr3)
+- Sony (.arw)
+- Adobe (.dng)
+- Fujifilm (.raf)
+- Olympus (.orf)
+- Panasonic (.rw2)
+
+**Installation:**
+```bash
+pip install rawpy
+```
+
+**Processing Modes:**
+- `full` - Full resolution (best quality, slowest)
+- `half` - Half resolution (balanced, recommended)
+- `preview` - Embedded JPEG (fastest, lower quality)
+
+Configure in `config.ini` under `[RAW]` section or select in GUI.
+
 ## ⚠️ Limitations
 
-- RAW formats (.raw, .nef, .cr2) not currently supported
+- RAW processing requires additional `rawpy` library (optional)
+- RAW files take significantly longer to process
 - Processing time varies with image size and filter settings
 - Non-local means filter is computationally intensive
 

@@ -43,6 +43,12 @@ class NonLocalMeansConfig:
 
 
 @dataclass
+class RAWConfig:
+    """RAW image processing configuration."""
+    processing_mode: str  # 'full', 'half', or 'preview'
+
+
+@dataclass
 class DenoiserConfig:
     """Complete denoiser configuration."""
     input_path: str
@@ -52,6 +58,7 @@ class DenoiserConfig:
     gaussian: GaussianConfig
     median: MedianConfig
     nonlocal: NonLocalMeansConfig
+    raw: RAWConfig
 
 
 def load_config(config_path='config.ini'):
@@ -107,6 +114,11 @@ def load_config(config_path='config.ini'):
         patch_distance=config.getint('NonLocalMeans', 'patch_distance', fallback=6)
     )
     
+    # Load RAW processing settings
+    raw = RAWConfig(
+        processing_mode=config.get('RAW', 'processing_mode', fallback='half')
+    )
+    
     return DenoiserConfig(
         input_path=input_path,
         output_path=output_path,
@@ -114,5 +126,6 @@ def load_config(config_path='config.ini'):
         filters=filters,
         gaussian=gaussian,
         median=median,
-        nonlocal=nonlocal
+        nonlocal=nonlocal,
+        raw=raw
     )

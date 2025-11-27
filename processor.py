@@ -1,7 +1,7 @@
 """Image batch processing logic."""
 import os
 import logging
-from image_io import get_image_files, load_image, save_image, get_output_filename
+from image_io import get_image_files, load_image, save_image, get_output_filename, is_rawpy_available
 from image_filters import apply_gaussian_filter, apply_median_filter, apply_nonlocal_means
 from metrics import normalize_image, calculate_noise_metrics
 
@@ -29,6 +29,12 @@ class ImageProcessor:
         self.logger.info(f"Output format: {self.config.output.format.upper()}" + 
                         (f" (quality: {self.config.output.jpeg_quality})" 
                          if self.config.output.format == 'jpg' else ""))
+        
+        # Log RAW support status
+        if is_rawpy_available():
+            self.logger.info(f"RAW support: Enabled (mode: {self.config.raw.processing_mode})")
+        else:
+            self.logger.info("RAW support: Disabled (install rawpy to enable)")
         
         image_files = get_image_files(self.config.input_path)
         total_files = len(image_files)
@@ -62,7 +68,7 @@ class ImageProcessor:
         self.logger.info(f"[{idx}/{total}] Processing: {filename}")
         
         img_path = os.path.join(self.config.input_path, filename)
-        img = load_image(img_path)
+        img = load_image(img_path, raw_mode=self.config.raw.processing_mode)
         img_float = normalize_image(img)
         
         image_metrics = {'filename': filename}

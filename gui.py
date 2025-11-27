@@ -5,7 +5,7 @@ import os
 import sys
 import threading
 import logging
-from config_loader import DenoiserConfig, OutputConfig, FilterConfig, GaussianConfig, MedianConfig, NonLocalMeansConfig
+from config_loader import DenoiserConfig, OutputConfig, FilterConfig, GaussianConfig, MedianConfig, NonLocalMeansConfig, RAWConfig
 from processor import ImageProcessor
 from metrics import save_metrics_to_csv
 
@@ -48,6 +48,12 @@ class DenoiserGUI:
         self.gaussian_sigma = tk.DoubleVar(value=0.75)
         self.median_size = tk.IntVar(value=3)
         self.nl_h_multiplier = tk.DoubleVar(value=1.15)
+        self.nl_fast_mode = tk.BooleanVar(value=True)
+        self.nl_patch_size = tk.IntVar(value=5)
+        self.nl_patch_distance = tk.IntVar(value=6)
+        
+        # RAW processing mode
+        self.raw_mode = tk.StringVar(value="half")
         self.nl_fast_mode = tk.BooleanVar(value=True)
         self.nl_patch_size = tk.IntVar(value=5)
         self.nl_patch_distance = tk.IntVar(value=6)
@@ -146,6 +152,22 @@ class DenoiserGUI:
         ttk.Separator(main_frame, orient='horizontal').grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=10)
         row += 1
         
+        # RAW settings
+        raw_frame = ttk.LabelFrame(main_frame, text="RAW Image Settings", padding="5")
+        raw_frame.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        
+        ttk.Label(raw_frame, text="Processing Mode:").grid(row=0, column=0, sticky=tk.W, padx=5)
+        raw_combo = ttk.Combobox(raw_frame, textvariable=self.raw_mode, 
+                                values=["full", "half", "preview"], state="readonly", width=15)
+        raw_combo.grid(row=0, column=1, sticky=tk.W, padx=5)
+        ttk.Label(raw_frame, text="(full=best quality/slow, half=balanced, preview=fast/lower quality)").grid(row=0, column=2, sticky=tk.W, padx=5)
+        
+        row += 1
+        
+        # Separator
+        ttk.Separator(main_frame, orient='horizontal').grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=10)
+        row += 1
+        
         # Process button
         self.process_btn = ttk.Button(main_frame, text="Start Processing", command=self.start_processing)
         self.process_btn.grid(row=row, column=0, columnspan=3, pady=10)
@@ -229,6 +251,10 @@ class DenoiserGUI:
             patch_distance=self.nl_patch_distance.get()
         )
         
+        raw = RAWConfig(
+            processing_mode=self.raw_mode.get()
+        )
+        
         return DenoiserConfig(
             input_path=self.input_path.get(),
             output_path=self.output_path.get(),
@@ -236,7 +262,8 @@ class DenoiserGUI:
             filters=filters,
             gaussian=gaussian,
             median=median,
-            nonlocal=nonlocal
+            nonlocal=nonlocal,
+            raw=raw
         )
     
     def start_processing(self):
