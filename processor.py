@@ -279,6 +279,15 @@ class ImageProcessor:
             # Apply filter
             filtered_img = filter_func()
             
+            # Apply optional sharpening to restore structure
+            if self.config.output.apply_sharpening:
+                from image_filters import apply_unsharp_mask
+                filtered_img = apply_unsharp_mask(
+                    filtered_img, 
+                    radius=self.config.output.sharpen_radius,
+                    amount=self.config.output.sharpen_amount
+                )
+            
             # Save filtered image
             output_filename = get_output_filename(
                 filename, 

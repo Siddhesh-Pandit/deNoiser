@@ -41,6 +41,9 @@ class DenoiserGUI:
         self.output_format = tk.StringVar(value="png")
         self.jpeg_quality = tk.IntVar(value=95)
         self.preserve_color = tk.BooleanVar(value=True)
+        self.apply_sharpening = tk.BooleanVar(value=False)
+        self.sharpen_amount = tk.DoubleVar(value=0.5)
+        self.sharpen_radius = tk.DoubleVar(value=1.0)
         
         # Filter toggles
         self.enable_gaussian = tk.BooleanVar(value=True)
@@ -50,10 +53,10 @@ class DenoiserGUI:
         # Filter parameters
         self.gaussian_sigma = tk.DoubleVar(value=0.75)
         self.median_size = tk.IntVar(value=3)
-        self.nl_h_multiplier = tk.DoubleVar(value=0.8)
+        self.nl_h_multiplier = tk.DoubleVar(value=0.85)
         self.nl_fast_mode = tk.BooleanVar(value=True)
-        self.nl_patch_size = tk.IntVar(value=5)
-        self.nl_patch_distance = tk.IntVar(value=11)
+        self.nl_patch_size = tk.IntVar(value=3)
+        self.nl_patch_distance = tk.IntVar(value=3)
         
         # RAW processing mode
         self.raw_mode = tk.StringVar(value="half")
@@ -114,7 +117,17 @@ class DenoiserGUI:
         ttk.Spinbox(output_frame, from_=1, to=100, textvariable=self.jpeg_quality, width=10).grid(row=0, column=3, sticky=tk.W, padx=5)
         
         ttk.Checkbutton(output_frame, text="Preserve Color (denoise luminance only)", 
-                       variable=self.preserve_color).grid(row=1, column=0, columnspan=4, sticky=tk.W, padx=5, pady=5)
+                       variable=self.preserve_color).grid(row=1, column=0, columnspan=2, sticky=tk.W, padx=5, pady=5)
+        
+        ttk.Checkbutton(output_frame, text="Apply Sharpening (restore structure)", 
+                       variable=self.apply_sharpening).grid(row=1, column=2, columnspan=2, sticky=tk.W, padx=5, pady=5)
+        
+        # Sharpening controls
+        ttk.Label(output_frame, text="Sharpen Amount:").grid(row=2, column=0, sticky=tk.W, padx=5)
+        ttk.Spinbox(output_frame, from_=0.0, to=2.0, increment=0.1, textvariable=self.sharpen_amount, width=10).grid(row=2, column=1, sticky=tk.W, padx=5)
+        
+        ttk.Label(output_frame, text="Sharpen Radius:").grid(row=2, column=2, sticky=tk.W, padx=(20, 5))
+        ttk.Spinbox(output_frame, from_=0.5, to=3.0, increment=0.1, textvariable=self.sharpen_radius, width=10).grid(row=2, column=3, sticky=tk.W, padx=5)
         
         row += 1
         
@@ -304,7 +317,10 @@ class DenoiserGUI:
             format=self.output_format.get(),
             jpeg_quality=self.jpeg_quality.get(),
             preserve_original_format=False,
-            preserve_color=self.preserve_color.get()
+            preserve_color=self.preserve_color.get(),
+            apply_sharpening=self.apply_sharpening.get(),
+            sharpen_amount=self.sharpen_amount.get(),
+            sharpen_radius=self.sharpen_radius.get()
         )
         
         filters = FilterConfig(

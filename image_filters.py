@@ -38,6 +38,49 @@ def apply_median_filter(image, size=3, preserve_color=False):
     return nd.median_filter(image, size=size)
 
 
+def apply_unsharp_mask(image, radius=1.0, amount=0.5):
+    """Apply unsharp mask to restore structure and detail.
+    
+    This sharpens the image by subtracting a blurred version from the original.
+    Useful for restoring detail after aggressive denoising.
+    
+    Args:
+        image: Input image array
+        radius: Radius of Gaussian blur (higher = more sharpening)
+        amount: Strength of sharpening (0.0-2.0, typical: 0.3-1.0)
+    
+    Returns:
+        Sharpened image array
+    """
+    # Convert to float for processing
+    if image.dtype == np.uint8:
+        img_float = image.astype(np.float64)
+        max_val = 255.0
+    elif image.dtype == np.uint16:
+        img_float = image.astype(np.float64)
+        max_val = 65535.0
+    else:
+        img_float = image.astype(np.float64)
+        max_val = 1.0 if image.max() <= 1.0 else image.max()
+    
+    # Create blurred version
+    blurred = nd.gaussian_filter(img_float, sigma=radius)
+    
+    # Unsharp mask: original + amount * (original - blurred)
+    sharpened = img_float + amount * (img_float - blurred)
+    
+    # Clip to valid range
+    sharpened = np.clip(sharpened, 0, max_val)
+    
+    # Convert back to original dtype
+    if image.dtype == np.uint8:
+        return sharpened.astype(np.uint8)
+    elif image.dtype == np.uint16:
+        return sharpened.astype(np.uint16)
+    else:
+        return sharpened
+
+
 def apply_nonlocal_means(image, h_multiplier=1.15, fast_mode=True, 
                         patch_size=5, patch_distance=6, preserve_color=False):
     """Apply non-local means denoising filter.

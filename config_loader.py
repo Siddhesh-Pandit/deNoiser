@@ -12,6 +12,9 @@ class OutputConfig:
     jpeg_quality: int
     preserve_original_format: bool
     preserve_color: bool
+    apply_sharpening: bool
+    sharpen_amount: float
+    sharpen_radius: float
 
 
 @dataclass
@@ -90,7 +93,10 @@ def load_config(config_path='config.ini'):
         format=config.get('Output', 'format', fallback='png'),
         jpeg_quality=config.getint('Output', 'jpeg_quality', fallback=95),
         preserve_original_format=config.getboolean('Output', 'preserve_original_format', fallback=False),
-        preserve_color=config.getboolean('Output', 'preserve_color', fallback=True)
+        preserve_color=config.getboolean('Output', 'preserve_color', fallback=True),
+        apply_sharpening=config.getboolean('Output', 'apply_sharpening', fallback=False),
+        sharpen_amount=config.getfloat('Output', 'sharpen_amount', fallback=0.5),
+        sharpen_radius=config.getfloat('Output', 'sharpen_radius', fallback=1.0)
     )
     
     # Load filter toggles
@@ -110,10 +116,10 @@ def load_config(config_path='config.ini'):
     )
     
     nonlocal_means = NonLocalMeansConfig(
-        h_multiplier=config.getfloat('NonLocalMeans', 'h_multiplier', fallback=0.8),
+        h_multiplier=config.getfloat('NonLocalMeans', 'h_multiplier', fallback=0.85),
         fast_mode=config.getboolean('NonLocalMeans', 'fast_mode', fallback=True),
-        patch_size=config.getint('NonLocalMeans', 'patch_size', fallback=5),
-        patch_distance=config.getint('NonLocalMeans', 'patch_distance', fallback=11)
+        patch_size=config.getint('NonLocalMeans', 'patch_size', fallback=3),
+        patch_distance=config.getint('NonLocalMeans', 'patch_distance', fallback=3)
     )
     
     # Load RAW processing settings
