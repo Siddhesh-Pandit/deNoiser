@@ -1,103 +1,44 @@
-import numpy as np
-import os
-import configparser
-import matplotlib.pyplot as plt
-from skimage import data, img_as_float
-from skimage.restoration import denoise_nl_means, estimate_sigma
-from skimage.metrics import peak_signal_noise_ratio
-from skimage.util import random_noise
-from skimage import io
-from scipy import ndimage as nd
-from skimage.restoration import denoise_nl_means, estimate_sigma
+"""Main entry point for batch image denoising."""
+import logging
+from config_loader import load_config
+from processor import ImageProcessor
+from metrics import save_metrics_to_csv
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, 
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 
-def append_extension(filename, extension):
-  """Appends an extension to a filename if it doesn't already have one.
-
-  Args:
-      filename: The original filename (without extension).
-      extension: The extension to append (e.g., ".txt", ".pdf").
-
-  Returns:
-      The filename with the appended extension, or the original filename if 
-      it already had an extension.
-  """
-  if not filename.lower().endswith(extension.lower()):
-    return filename + extension
-  return filename
-
-def read_images_from_folder_and_deNoise(folder_path, output_folder_path):
+def main():
+    """Main execution function."""
+    logger = logging.getLogger(__name__)
     
-    if not os.path.exists(output_folder_path):
-        os.makedirs(output_folder_path)
+    try:
+        # Load configuration
+        config = load_config('config.ini')
+        
+        logger.info(f"Input folder: {config.input_path}")
+        logger.info(f"Output folder: {config.output_path}")
+        
+        # Process images
+        processor = ImageProcessor(config)
+        processed_count, metrics_list = processor.process_batch()
+        
+        # Save metrics
+        if processed_count > 0:
+            csv_file = save_metrics_to_csv(metrics_list, config.output_path)
+            logger.info(f"📊 Metrics saved to: {csv_file}")
+            logger.info(f"✓ Successfully processed {processed_count} images")
+        else:
+            logger.warning("No images were processed")
     
-    images = []
-
-    for filename in os.listdir(folder_path):
-        if filename.endswith(('.jpg','.JPG', '.jpeg','.JPEG', '.png','.PNG', '.gif','.GIF', '.bmp','.BMP')):
-            img_path = os.path.join(folder_path, filename)
-            img = io.imread(img_path)
-            print(f"processing:{img_path}")
-
-            if img is not None:
-
-                gaussian_img=nd.gaussian_filter(img, sigma=.75)
-                extension ="_gaussian.jpeg"
-                filenameNew = append_extension(os.path.splitext(filename)[0],extension)
-
-                output_file_path = os.path.join(output_folder_path, filenameNew)
-                plt.imsave(output_file_path, gaussian_img, dpi=300)
-                print(f"processed gaussian filter image:{output_file_path}")
-
-                median_img=nd.median_filter(img, size=3)
-                extension ="_median.jpeg"
-                filenameNew = append_extension(os.path.splitext(filename)[0],extension)
-                output_file_path = os.path.join(output_folder_path, filenameNew)
-                
-                plt.imsave(output_file_path, median_img, dpi=500)
-                print(f"processed median filter image:{output_file_path}")
+    except FileNotFoundError as e:
+        logger.error(str(e))
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
 
 
-                sigma_est = np.mean(estimate_sigma(img, channel_axis=-1))
-                denoise_nl = denoise_nl_means(img, h=1.15 * sigma_est, fast_mode=True, patch_distance=2, patch_size=2, channel_axis=-1)
-                extension ="_nonlocal.jpeg"
-                filenameNew = append_extension(os.path.splitext(filename)[0],extension)
-
-                output_file_path = os.path.join(output_folder_path, filenameNew)
-                plt.imsave(output_file_path, denoise_nl, dpi=300)
-                print(f"processed nonlocal filter image:{output_file_path}")
-
-
-                images.append(img)
-
-                print(f"successfully processed:{img_path}")
-            else:
-                print(f"Error reading image:{filename}")
-    return images
-
-
-config = configparser.ConfigParser()
-
-try:
-    config.read('config.ini')
-    folder_path = config.get('Paths', 'input_file_path')
-    output_folder_path = config.get('Paths', 'output_file_path')
-
-    print(f"input file path: {folder_path}")
-    print(f"output file path: {output_folder_path}")
-
-    images = read_images_from_folder_and_deNoise(folder_path, output_folder_path)
-
-    if images:
-        print(f"Successfully read {len(images)} images.")
-        print("Exiting")
-
-    else:
-        print("No images found or an error occurred.")
-
-except configparser.Error as e:
-    print(f"Error reading config file: {e}")
-except KeyError:
-    print("The 'file_path' key was not found in the 'Paths' section.")
-except FileNotFoundError:
-    print("The 'config.ini' file was not found.")
+if __name__ == "__main__":
+    main()
