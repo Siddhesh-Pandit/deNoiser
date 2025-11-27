@@ -396,7 +396,7 @@ class DenoiserGUI:
                 processor = ImageProcessor(config)
                 processed_count, metrics_list = processor.process_files(
                     files_to_process, 
-                    progress_callback=lambda c, t, f: self.root.after(0, lambda: self.update_progress(c, t, f))
+                    progress_callback=lambda c, t, f: self.root.after(0, self.update_progress, c, t, f)
                 )
             else:
                 logger.info(f"Input folder: {config.input_path}")
@@ -405,7 +405,7 @@ class DenoiserGUI:
                 # Process entire folder with progress callback
                 processor = ImageProcessor(config)
                 processed_count, metrics_list = processor.process_batch(
-                    progress_callback=lambda c, t, f: self.root.after(0, lambda: self.update_progress(c, t, f))
+                    progress_callback=lambda c, t, f: self.root.after(0, self.update_progress, c, t, f)
                 )
             
             if processed_count > 0:
