@@ -110,12 +110,13 @@ class ImageProcessor:
         
         return processed_count, metrics_list
     
-    def process_files(self, file_paths, progress_callback=None):
+    def process_files(self, file_paths, progress_callback=None, mask=None):
         """Process specific image files.
         
         Args:
             file_paths: List of full file paths to process
             progress_callback: Optional callback function(current, total, filename)
+            mask: Optional numpy array mask for selective denoising (0-1 float)
         
         Returns:
             Tuple of (processed_count, metrics_list)
@@ -154,7 +155,8 @@ class ImageProcessor:
                             img, img_float, filename, image_metrics,
                             filter_func=lambda: apply_gaussian_filter(img, self.config.gaussian.sigma, self.config.output.preserve_color),
                             filter_name='gaussian',
-                            filter_params=f"σ={self.config.gaussian.sigma}" + (" [color-preserving]" if self.config.output.preserve_color else "")
+                            filter_params=f"σ={self.config.gaussian.sigma}" + (" [color-preserving]" if self.config.output.preserve_color else ""),
+                            mask=mask
                         )
                         filters_succeeded += 1
                     except Exception:
@@ -168,7 +170,8 @@ class ImageProcessor:
                             img, img_float, filename, image_metrics,
                             filter_func=lambda: apply_median_filter(img, self.config.median.size, self.config.output.preserve_color),
                             filter_name='median',
-                            filter_params=f"size={self.config.median.size}" + (" [color-preserving]" if self.config.output.preserve_color else "")
+                            filter_params=f"size={self.config.median.size}" + (" [color-preserving]" if self.config.output.preserve_color else ""),
+                            mask=mask
                         )
                         filters_succeeded += 1
                     except Exception:
@@ -189,7 +192,8 @@ class ImageProcessor:
                                 self.config.output.preserve_color
                             ),
                             filter_name='nonlocal',
-                            filter_params=f"h={self.config.nonlocal_means.h_multiplier}×σ" + (" [color-preserving]" if self.config.output.preserve_color else "")
+                            filter_params=f"h={self.config.nonlocal_means.h_multiplier}×σ" + (" [color-preserving]" if self.config.output.preserve_color else ""),
+                            mask=mask
                         )
                         filters_succeeded += 1
                     except Exception:
@@ -290,7 +294,7 @@ class ImageProcessor:
         return image_metrics
     
     def _apply_and_save_filter(self, img, img_float, filename, metrics_dict, 
-                               filter_func, filter_name, filter_params):
+                               filter_func, filter_name, filter_params, mask=None):
         """Apply filter, save result, and calculate metrics.
         
         Args:
@@ -301,10 +305,29 @@ class ImageProcessor:
             filter_func: Function that applies the filter
             filter_name: Name of filter for output
             filter_params: Parameter string for logging
+            mask: Optional mask array for selective denoising (0-1 float)
         """
         try:
             # Apply filter
             filtered_img = filter_func()
+            
+            # Apply mask if provided (selective denoising)
+            if mask is not None:
+                import numpy as np
+                # Ensure mask matches image dimensions
+                if mask.shape[:2] != img.shape[:2]:
+                    from PIL import Image as PILImage
+                    mask_pil = PILImage.fromarray((mask * 255).astype(np.uint8))
+                    mask_pil = mask_pil.resize((img.shape[1], img.shape[0]), PILImage.Resampling.LANCZOS)
+                    mask = np.array(mask_pil).astype(np.float32) / 255.0
+                
+                # Expand mask to match image channels if needed
+                if img.ndim == 3 and mask.ndim == 2:
+                    mask = np.expand_dims(mask, axis=2)
+                
+                # Blend: result = filtered * mask + original * (1 - mask)
+                filtered_img = (filtered_img * mask + img * (1 - mask)).astype(img.dtype)
+                self.logger.info(f"  ✓ Applied selective denoising mask")
             
             # Apply optional sharpening to restore structure
             if self.config.output.apply_sharpening:
