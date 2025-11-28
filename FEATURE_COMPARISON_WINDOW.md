@@ -29,6 +29,7 @@ When processing with multiple filters, a dialog also appears asking:
 ### Visual Design
 - **White slider line** with circular handle in the center
 - **Arrow indicators** (◀ ▶) on the handle showing drag direction
+- **Zoom controls** at top: 🔍− / 100% / 🔍+ / Reset buttons
 - **Labels** at bottom: "◀ BEFORE" and "AFTER ▶"
 - **Black background** for clean presentation
 - **Automatic scaling** to fit window while maintaining aspect ratio
@@ -58,7 +59,9 @@ Located in `gui.py`, this class creates a Toplevel window with:
 2. **Easy Evaluation** - Quickly judge if denoising worked well
 3. **No File Switching** - Compare without opening multiple files
 4. **Intuitive Interface** - Natural drag interaction
-5. **Automatic Scaling** - Works with any image size
+5. **Zoom for Details** - Inspect fine details at up to 400% zoom
+6. **Mouse Wheel Support** - Quick zoom with scroll wheel
+7. **Automatic Scaling** - Works with any image size
 
 ## When Comparison is Available
 
@@ -86,11 +89,37 @@ python test_comparison.py
 
 This creates simple before/after images and opens the comparison window for testing.
 
+## Zoom Feature
+
+### Controls
+- **🔍− button** - Zoom out by 25%
+- **🔍+ button** - Zoom in by 25%
+- **Reset button** - Return to 100% zoom
+- **Mouse wheel** - Scroll to zoom in/out
+- **Scrollbars** - Pan around when zoomed in
+- **Zoom range** - 25% to 400%
+
+### Usage
+1. Open comparison window
+2. Use zoom buttons or scroll wheel
+3. Zoom in to inspect fine details
+4. Use scrollbars to pan around zoomed image
+5. Drag slider at any zoom level
+6. Click Reset to return to original size
+
+### Benefits
+- **Fixed window size** - Window doesn't resize when zooming
+- **Scrollable view** - Pan around large zoomed images
+- **Inspect details** - See noise reduction at pixel level
+- **Verify sharpness** - Check if edges are preserved
+- **Compare textures** - Examine how filters affect fine detail
+- **Quality check** - Ensure no artifacts introduced
+
 ## Future Enhancements
 
 Potential improvements:
 - Compare multiple filter outputs side-by-side
-- Zoom functionality
 - Save comparison as split image
 - Keyboard shortcuts for slider control
 - Multiple image navigation (prev/next buttons)
+- Pan support when zoomed in

@@ -95,6 +95,7 @@ After processing images, click the **"🔍 View Comparison"** button to open an 
 
 - **Always available** - Button appears after any successful processing
 - **Draggable slider** - Smoothly reveal the processed image over the original
+- **Zoom controls** - Zoom in/out with buttons or mouse wheel (25%-400%)
 - **Real-time comparison** - See exactly what changed
 - **Easy evaluation** - Quickly judge if the denoising worked well
 

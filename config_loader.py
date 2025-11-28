@@ -15,6 +15,8 @@ class OutputConfig:
     apply_sharpening: bool
     sharpen_amount: float
     sharpen_radius: float
+    boost_saturation: bool
+    saturation_amount: float
 
 
 @dataclass

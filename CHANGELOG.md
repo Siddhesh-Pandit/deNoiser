@@ -7,6 +7,7 @@
 #### Interactive Before/After Comparison
 - **"🔍 View Comparison" button** always visible in GUI (enabled after processing)
 - **Before/After comparison window** with draggable slider overlay
+- **Zoom controls** - Zoom in/out buttons and mouse wheel support (25%-400%)
 - Automatically offered after processing with multiple filters
 - Smooth, real-time image reveal as you drag the slider
 - Visual evaluation of denoising effectiveness

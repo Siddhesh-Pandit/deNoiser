@@ -34,20 +34,57 @@ class BeforeAfterWindow:
     def __init__(self, parent, before_path, after_path, title="Before/After Comparison"):
         self.window = tk.Toplevel(parent)
         self.window.title(title)
-        self.window.geometry("1000x700")
+        self.window.geometry("1000x750")
         
         # Load images
         self.before_img = Image.open(before_path)
         self.after_img = Image.open(after_path)
         
-        # Scale images to fit window while maintaining aspect ratio
-        max_width, max_height = 980, 600
-        self.scale_images(max_width, max_height)
+        # Zoom state
+        self.zoom_level = 1.0
+        self.min_zoom = 0.25
+        self.max_zoom = 4.0
         
-        # Create canvas
-        self.canvas = tk.Canvas(self.window, width=self.display_width, height=self.display_height, 
-                               bg='black', highlightthickness=0)
-        self.canvas.pack(pady=10)
+        # Fixed canvas size
+        self.canvas_width = 980
+        self.canvas_height = 550
+        
+        # Scale images to fit canvas while maintaining aspect ratio
+        self.max_width = self.canvas_width
+        self.max_height = self.canvas_height
+        self.scale_images(self.canvas_width, self.canvas_height)
+        
+        # Create canvas frame with scrollbars
+        canvas_frame = ttk.Frame(self.window)
+        canvas_frame.pack(pady=10, fill=tk.BOTH, expand=True)
+        
+        # Create scrollbars
+        h_scrollbar = ttk.Scrollbar(canvas_frame, orient=tk.HORIZONTAL)
+        v_scrollbar = ttk.Scrollbar(canvas_frame, orient=tk.VERTICAL)
+        
+        # Create canvas with fixed size
+        self.canvas = tk.Canvas(canvas_frame, 
+                               width=self.canvas_width, 
+                               height=self.canvas_height,
+                               bg='black', 
+                               highlightthickness=0,
+                               xscrollcommand=h_scrollbar.set,
+                               yscrollcommand=v_scrollbar.set)
+        
+        # Configure scrollbars
+        h_scrollbar.config(command=self.canvas.xview)
+        v_scrollbar.config(command=self.canvas.yview)
+        
+        # Grid layout for canvas and scrollbars
+        self.canvas.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+        h_scrollbar.grid(row=1, column=0, sticky=(tk.E, tk.W))
+        v_scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        
+        canvas_frame.rowconfigure(0, weight=1)
+        canvas_frame.columnconfigure(0, weight=1)
+        
+        # Set scroll region
+        self.canvas.config(scrollregion=(0, 0, self.display_width, self.display_height))
         
         # Convert to PhotoImage
         self.before_photo = ImageTk.PhotoImage(self.before_scaled)
@@ -86,6 +123,16 @@ class BeforeAfterWindow:
         # Clip the after image
         self.update_clip()
         
+        # Zoom controls
+        zoom_frame = ttk.Frame(self.window)
+        zoom_frame.pack(pady=5)
+        
+        ttk.Button(zoom_frame, text="🔍−", command=self.zoom_out, width=5).pack(side=tk.LEFT, padx=5)
+        self.zoom_label = ttk.Label(zoom_frame, text="100%", font=('Arial', 10))
+        self.zoom_label.pack(side=tk.LEFT, padx=10)
+        ttk.Button(zoom_frame, text="🔍+", command=self.zoom_in, width=5).pack(side=tk.LEFT, padx=5)
+        ttk.Button(zoom_frame, text="Reset", command=self.zoom_reset, width=8).pack(side=tk.LEFT, padx=5)
+        
         # Info labels
         info_frame = ttk.Frame(self.window)
         info_frame.pack(pady=5)
@@ -98,6 +145,9 @@ class BeforeAfterWindow:
         self.canvas.bind('<Button-1>', self.on_click)
         self.canvas.bind('<B1-Motion>', self.on_drag)
         self.canvas.bind('<ButtonRelease-1>', self.on_release)
+        self.canvas.bind('<MouseWheel>', self.on_mousewheel)  # Windows/Mac
+        self.canvas.bind('<Button-4>', self.on_mousewheel)    # Linux scroll up
+        self.canvas.bind('<Button-5>', self.on_mousewheel)    # Linux scroll down
         
         self.dragging = False
     
@@ -130,17 +180,136 @@ class BeforeAfterWindow:
         self.after_photo = ImageTk.PhotoImage(clipped)
         self.canvas.itemconfig(self.after_id, image=self.after_photo)
     
+    def zoom_in(self):
+        """Zoom in by 25%."""
+        new_zoom = min(self.zoom_level * 1.25, self.max_zoom)
+        if new_zoom != self.zoom_level:
+            self.zoom_level = new_zoom
+            self.apply_zoom()
+    
+    def zoom_out(self):
+        """Zoom out by 25%."""
+        new_zoom = max(self.zoom_level / 1.25, self.min_zoom)
+        if new_zoom != self.zoom_level:
+            self.zoom_level = new_zoom
+            self.apply_zoom()
+    
+    def zoom_reset(self):
+        """Reset zoom to 100%."""
+        if self.zoom_level != 1.0:
+            self.zoom_level = 1.0
+            self.apply_zoom()
+    
+    def on_mousewheel(self, event):
+        """Handle mouse wheel zoom."""
+        # Windows/Mac use event.delta, Linux uses event.num
+        if hasattr(event, 'delta'):
+            delta = event.delta
+        elif event.num == 4:
+            delta = 120  # Scroll up
+        elif event.num == 5:
+            delta = -120  # Scroll down
+        else:
+            return
+        
+        if delta > 0:
+            self.zoom_in()
+        else:
+            self.zoom_out()
+    
+    def apply_zoom(self):
+        """Apply current zoom level to images."""
+        # Calculate new dimensions
+        width, height = self.before_img.size
+        scale_w = self.max_width / width
+        scale_h = self.max_height / height
+        base_scale = min(scale_w, scale_h, 1.0)
+        
+        final_scale = base_scale * self.zoom_level
+        
+        new_width = int(width * final_scale)
+        new_height = int(height * final_scale)
+        
+        # Resize images
+        self.before_scaled = self.before_img.resize(
+            (new_width, new_height), 
+            Image.Resampling.LANCZOS
+        )
+        self.after_scaled = self.after_img.resize(
+            (new_width, new_height), 
+            Image.Resampling.LANCZOS
+        )
+        
+        # Update display dimensions
+        old_width = self.display_width
+        self.display_width = new_width
+        self.display_height = new_height
+        
+        # Update scroll region (canvas stays same size, content grows/shrinks)
+        self.canvas.config(scrollregion=(0, 0, self.display_width, self.display_height))
+        
+        # Update images
+        self.before_photo = ImageTk.PhotoImage(self.before_scaled)
+        self.canvas.itemconfig("before", image=self.before_photo)
+        
+        # Adjust slider position proportionally
+        if old_width > 0:
+            self.slider_x = int(self.slider_x * self.display_width / old_width)
+        else:
+            self.slider_x = self.display_width // 2
+        
+        # Update slider
+        handle_y = self.display_height // 2
+        handle_size = 30
+        
+        self.canvas.coords(self.slider_line, 
+                         self.slider_x, 0, self.slider_x, self.display_height)
+        self.canvas.coords(self.slider_handle,
+                         self.slider_x - handle_size, handle_y - handle_size,
+                         self.slider_x + handle_size, handle_y + handle_size)
+        
+        # Update text positions
+        items = self.canvas.find_withtag("slider")
+        for item in items:
+            if self.canvas.type(item) == "text":
+                _, y = self.canvas.coords(item)
+                if "◀" in str(self.canvas.itemcget(item, "text")):
+                    self.canvas.coords(item, self.slider_x, handle_y - 5)
+                else:
+                    self.canvas.coords(item, self.slider_x, handle_y + 5)
+        
+        # Update clipped image
+        self.update_clip()
+        
+        # Update zoom label
+        self.zoom_label.config(text=f"{int(self.zoom_level * 100)}%")
+        
+        # Center the view when zooming in
+        if self.zoom_level > 1.0:
+            # Center on the slider position
+            x_center = self.slider_x / self.display_width
+            y_center = 0.5
+            self.canvas.xview_moveto(max(0, x_center - 0.5))
+            self.canvas.yview_moveto(max(0, y_center - 0.5))
+    
     def on_click(self, event):
         """Handle mouse click."""
+        # Convert event coordinates to canvas coordinates
+        canvas_x = self.canvas.canvasx(event.x)
+        canvas_y = self.canvas.canvasy(event.y)
+        
         # Check if click is near slider
-        if abs(event.x - self.slider_x) < 40:
+        if abs(canvas_x - self.slider_x) < 40:
             self.dragging = True
     
     def on_drag(self, event):
         """Handle mouse drag."""
         if self.dragging:
+            # Convert event coordinates to canvas coordinates
+            canvas_x = self.canvas.canvasx(event.x)
+            
             # Constrain to canvas bounds
-            self.slider_x = max(0, min(event.x, self.display_width))
+            self.slider_x = max(0, min(canvas_x, self.display_width))
             
             # Update slider position
             handle_y = self.display_height // 2
@@ -188,6 +357,8 @@ class DenoiserGUI:
         self.apply_sharpening = tk.BooleanVar(value=False)
         self.sharpen_amount = tk.DoubleVar(value=1.2)
         self.sharpen_radius = tk.DoubleVar(value=1.5)
+        self.boost_saturation = tk.BooleanVar(value=False)
+        self.saturation_amount = tk.DoubleVar(value=1.3)
         
         # Filter toggles
         self.enable_gaussian = tk.BooleanVar(value=True)
@@ -299,6 +470,17 @@ class DenoiserGUI:
         create_tooltip(radius_label, "Sharpening radius:\n0.5-1.0: Fine details\n1.0-2.0: Balanced (default)\n2.0-3.0: Broader")
         ttk.Spinbox(output_frame, from_=0.5, to=3.0, increment=0.1, textvariable=self.sharpen_radius, width=10).grid(row=2, column=3, sticky=tk.W, padx=5)
         
+        # Saturation boost
+        saturation_check = ttk.Checkbutton(output_frame, text="Boost Saturation (enhance colors)", 
+                       variable=self.boost_saturation)
+        saturation_check.grid(row=3, column=0, columnspan=2, sticky=tk.W, padx=5, pady=5)
+        create_tooltip(saturation_check, "Enhance color vibrancy after processing.\nMakes colors more vivid and saturated.")
+        
+        saturation_label = ttk.Label(output_frame, text="Saturation Amount:")
+        saturation_label.grid(row=3, column=2, sticky=tk.W, padx=(20, 5))
+        create_tooltip(saturation_label, "Saturation boost strength:\n1.0: No change\n1.3: Moderate (default)\n1.5-2.0: Strong")
+        ttk.Spinbox(output_frame, from_=1.0, to=2.0, increment=0.1, textvariable=self.saturation_amount, width=10).grid(row=3, column=3, sticky=tk.W, padx=5)
+        
         row += 1
         
         # Separator
@@ -311,19 +493,19 @@ class DenoiserGUI:
         
         ttk.Label(presets_frame, text="Optimize for:").grid(row=0, column=0, sticky=tk.W, padx=5)
         
-        preset_photos = ttk.Button(presets_frame, text="📷 Photos", command=self.preset_photos, width=12)
+        preset_photos = ttk.Button(presets_frame, text="📷 Photos", command=self.preset_photos, width=14)
         preset_photos.grid(row=0, column=1, padx=5)
         create_tooltip(preset_photos, "Best for: Portraits, landscapes, general photos\n• Non-local Means only\n• Color preservation ON\n• Sharpening ON")
         
-        preset_docs = ttk.Button(presets_frame, text="📄 Documents", command=self.preset_documents, width=12)
+        preset_docs = ttk.Button(presets_frame, text="📄 Documents", command=self.preset_documents, width=15)
         preset_docs.grid(row=0, column=2, padx=5)
         create_tooltip(preset_docs, "Best for: Scanned documents, text\n• Median filter only\n• Color preservation OFF\n• Sharpening ON")
         
-        preset_lowlight = ttk.Button(presets_frame, text="🌙 Low-Light", command=self.preset_lowlight, width=12)
+        preset_lowlight = ttk.Button(presets_frame, text="🌙 Low-Light", command=self.preset_lowlight, width=14)
         preset_lowlight.grid(row=0, column=3, padx=5)
         create_tooltip(preset_lowlight, "Best for: Night photos, high ISO\n• Non-local Means (aggressive)\n• Color preservation ON\n• Sharpening ON")
         
-        preset_compare = ttk.Button(presets_frame, text="🔍 Compare All", command=self.preset_compare, width=12)
+        preset_compare = ttk.Button(presets_frame, text="🔍 Compare All", command=self.preset_compare, width=16)
         preset_compare.grid(row=0, column=4, padx=5)
         create_tooltip(preset_compare, "Compare all filters\n• All filters enabled\n• See which works best")
         
@@ -417,10 +599,10 @@ class DenoiserGUI:
         button_frame = ttk.Frame(main_frame)
         button_frame.grid(row=row, column=0, columnspan=3, pady=10)
         
-        self.process_btn = ttk.Button(button_frame, text="Start Processing", command=self.start_processing, width=20)
+        self.process_btn = ttk.Button(button_frame, text="Start Processing", command=self.start_processing, width=22)
         self.process_btn.pack(side=tk.LEFT, padx=5)
         
-        self.compare_btn = ttk.Button(button_frame, text="🔍 View Comparison", command=self.show_comparison_window, width=20)
+        self.compare_btn = ttk.Button(button_frame, text="🔍 View Comparison", command=self.show_comparison_window, width=25)
         self.compare_btn.pack(side=tk.LEFT, padx=5)
         self.compare_btn.config(state='disabled')  # Disabled until processing completes
         create_tooltip(self.compare_btn, "View before/after comparison of processed images\n(Available after processing)")
@@ -463,6 +645,16 @@ class DenoiserGUI:
                 # For PNG, convert to PhotoImage (works on all platforms)
                 icon_image = tk.PhotoImage(file='icon.png')
                 self.root.iconphoto(True, icon_image)
+            
+            # Windows-specific: Set taskbar icon
+            if sys.platform == 'win32':
+                try:
+                    import ctypes
+                    # Tell Windows this is a separate app (not Python)
+                    myappid = 'imagedenoiser.gui.1.0'  # Arbitrary string
+                    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+                except Exception:
+                    pass  # Not critical if this fails
         except Exception as e:
             # Silently fail if icon can't be loaded
             pass
@@ -552,7 +744,9 @@ class DenoiserGUI:
             preserve_color=self.preserve_color.get(),
             apply_sharpening=self.apply_sharpening.get(),
             sharpen_amount=self.sharpen_amount.get(),
-            sharpen_radius=self.sharpen_radius.get()
+            sharpen_radius=self.sharpen_radius.get(),
+            boost_saturation=self.boost_saturation.get(),
+            saturation_amount=self.saturation_amount.get()
         )
         
         filters = FilterConfig(

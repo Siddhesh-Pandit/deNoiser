@@ -38,7 +38,7 @@ def apply_median_filter(image, size=3, preserve_color=False):
     return nd.median_filter(image, size=size)
 
 
-def apply_unsharp_mask(image, radius=1.0, amount=0.5):
+def apply_unsharp_mask(image, radius=1.0, amount=0.5, preserve_color=False):
     """Apply unsharp mask to restore structure and detail.
     
     This sharpens the image by subtracting a blurred version from the original.
@@ -48,10 +48,33 @@ def apply_unsharp_mask(image, radius=1.0, amount=0.5):
         image: Input image array
         radius: Radius of Gaussian blur (higher = more sharpening)
         amount: Strength of sharpening (0.0-2.0, typical: 0.3-1.0)
+        preserve_color: If True, sharpen only luminance (preserves color/saturation)
     
     Returns:
         Sharpened image array
     """
+    # If preserve_color is enabled and image is RGB, sharpen only luminance
+    if preserve_color and image.ndim == 3:
+        def sharpen_func(img):
+            # img is the L channel as uint8 grayscale (0-255)
+            # Convert to float for processing
+            img_float = img.astype(np.float64)
+            
+            # Create blurred version
+            blurred = nd.gaussian_filter(img_float, sigma=radius)
+            
+            # Unsharp mask: original + amount * (original - blurred)
+            sharpened = img_float + amount * (img_float - blurred)
+            
+            # Clip to valid range [0, 255]
+            sharpened = np.clip(sharpened, 0, 255)
+            
+            # Convert back to uint8
+            return sharpened.astype(np.uint8)
+        
+        return _denoise_luminance_only(image, sharpen_func)
+    
+    # Original full-color sharpening
     # Convert to float for processing
     if image.dtype == np.uint8:
         img_float = image.astype(np.float64)
@@ -175,3 +198,52 @@ def apply_nonlocal_means(image, h_multiplier=1.15, fast_mode=True,
         return (denoised * 255).astype(np.uint8)
     else:
         return denoised
+
+
+
+def boost_saturation(image, amount=1.3):
+    """Boost color saturation to make colors more vivid.
+    
+    Args:
+        image: Input RGB image array
+        amount: Saturation multiplier (1.0 = no change, >1.0 = more saturated)
+    
+    Returns:
+        Image with boosted saturation
+    """
+    if image.ndim != 3:
+        # Grayscale image, return as-is
+        return image
+    
+    # Store original dtype
+    original_dtype = image.dtype
+    
+    # Convert to float [0, 1]
+    if image.dtype == np.uint8:
+        img_float = image.astype(np.float64) / 255.0
+    elif image.dtype == np.uint16:
+        img_float = image.astype(np.float64) / 65535.0
+    else:
+        img_float = image.astype(np.float64)
+        if img_float.max() > 1.0:
+            img_float = img_float / img_float.max()
+    
+    # Convert RGB to HSV
+    hsv = color.rgb2hsv(img_float)
+    
+    # Boost saturation (S channel)
+    hsv[:, :, 1] = np.clip(hsv[:, :, 1] * amount, 0, 1)
+    
+    # Convert back to RGB
+    rgb_boosted = color.hsv2rgb(hsv)
+    
+    # Clip to valid range
+    rgb_boosted = np.clip(rgb_boosted, 0, 1)
+    
+    # Convert back to original dtype
+    if original_dtype == np.uint8:
+        return np.clip((rgb_boosted * 255 + 0.5), 0, 255).astype(np.uint8)
+    elif original_dtype == np.uint16:
+        return np.clip((rgb_boosted * 65535 + 0.5), 0, 65535).astype(np.uint16)
+    else:
+        return rgb_boosted

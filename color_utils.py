@@ -40,30 +40,28 @@ def _denoise_luminance_only(image, denoise_func):
     a_channel = lab[:, :, 1]
     b_channel = lab[:, :, 2]
     
-    # Normalize L channel to [0, 1] for denoising
-    l_normalized = l_channel / 100.0
+    # Work with L channel directly in LAB range [0, 100]
+    # Most denoising functions work better with normalized data
+    # So we'll create a temporary RGB-like representation
     
-    # Convert to original dtype for denoising
-    if original_dtype == np.uint8:
-        l_for_denoise = (l_normalized * 255).astype(np.uint8)
-    elif original_dtype == np.uint16:
-        l_for_denoise = (l_normalized * 65535).astype(np.uint16)
+    # Create a grayscale "image" from L channel for denoising
+    # Normalize to [0, 255] range like a regular grayscale image
+    l_as_gray = (l_channel / 100.0 * 255.0).astype(np.uint8)
+    
+    # Denoise the grayscale representation
+    l_denoised_gray = denoise_func(l_as_gray)
+    
+    # Convert back to LAB L range [0, 100]
+    if l_denoised_gray.dtype == np.uint8:
+        l_denoised_lab = (l_denoised_gray.astype(np.float64) / 255.0) * 100.0
+    elif l_denoised_gray.dtype == np.uint16:
+        l_denoised_lab = (l_denoised_gray.astype(np.float64) / 65535.0) * 100.0
     else:
-        l_for_denoise = l_normalized
+        # Already float, assume [0, 1] range
+        l_denoised_lab = l_denoised_gray * 100.0
     
-    # Denoise only the luminance channel
-    l_denoised = denoise_func(l_for_denoise)
-    
-    # Convert back to float [0, 1]
-    if original_dtype == np.uint8:
-        l_denoised_float = l_denoised.astype(np.float64) / 255.0
-    elif original_dtype == np.uint16:
-        l_denoised_float = l_denoised.astype(np.float64) / 65535.0
-    else:
-        l_denoised_float = l_denoised.astype(np.float64)
-    
-    # Scale back to LAB L range [0, 100]
-    l_denoised_lab = l_denoised_float * 100.0
+    # Clip L channel to valid range
+    l_denoised_lab = np.clip(l_denoised_lab, 0, 100)
     
     # Reconstruct LAB image with denoised L and original A, B
     lab_denoised = np.stack([l_denoised_lab, a_channel, b_channel], axis=2)
@@ -71,10 +69,13 @@ def _denoise_luminance_only(image, denoise_func):
     # Convert back to RGB
     rgb_denoised = color.lab2rgb(lab_denoised)
     
+    # Clip to valid range [0, 1] before converting to int
+    rgb_denoised = np.clip(rgb_denoised, 0, 1)
+    
     # Convert back to original dtype
     if original_dtype == np.uint8:
-        return (rgb_denoised * 255).astype(np.uint8)
+        return np.clip((rgb_denoised * 255 + 0.5), 0, 255).astype(np.uint8)
     elif original_dtype == np.uint16:
-        return (rgb_denoised * 65535).astype(np.uint16)
+        return np.clip((rgb_denoised * 65535 + 0.5), 0, 65535).astype(np.uint16)
     else:
         return rgb_denoised
