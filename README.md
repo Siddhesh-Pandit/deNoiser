@@ -2,6 +2,10 @@
 
 A powerful batch image denoising tool with GUI and CLI interfaces. Applies multiple noise reduction filters and provides quality metrics for comparison.
 
+> **👉 NEW USER? [START HERE](START_HERE.md) - Everything you need in one page**
+>
+> **🪟 Windows Users:** [5-Minute Quick Start](QUICKSTART_WINDOWS.md) | [Detailed Installation](WINDOWS_INSTALL.md)
+
 ## ✨ Features
 
 - **🖼️ GUI Application** - Easy-to-use graphical interface (no config editing needed)
@@ -19,33 +23,19 @@ A powerful batch image denoising tool with GUI and CLI interfaces. Applies multi
 
 ## 🚀 Quick Start
 
-### Standalone Installers (No Python Required!)
+**Installation takes 5 minutes. No releases yet - run from source:**
 
-**Windows:**
-1. Download `ImageDenoiser.exe` from [Releases](../../releases)
-2. Double-click to run
+#### 1. Install Python
 
-**macOS:**
-1. Download `ImageDenoiser-Installer.dmg` from [Releases](../../releases)
-2. Open DMG and drag to Applications
-3. Launch from Applications folder
+Download and install [Python 3.12](https://www.python.org/downloads/) (or 3.8-3.13)
 
-**Linux:**
-- **AppImage** (Universal): Download, make executable, run
-  ```bash
-  chmod +x ImageDenoiser-x86_64.AppImage
-  ./ImageDenoiser-x86_64.AppImage
-  ```
-- **Debian/Ubuntu**: Download and install .deb package
-  ```bash
-  sudo dpkg -i imagedenoiser_2.0.0_amd64.deb
-  ```
+**Windows:** Make sure to check "Add Python to PATH" during installation
 
-No installation, no Python, no dependencies needed!
+#### 2. Download Project
 
-### For Developers - Run from Source
+Click the green "Code" button → Download ZIP → Extract
 
-#### 1. Install Dependencies
+#### 3. Install Dependencies
 
 **Windows:**
 ```bash
@@ -63,7 +53,7 @@ chmod +x install_dependencies.sh
 pip install -r requirements.txt
 ```
 
-#### 2. Run the Application
+#### 4. Run the Application
 
 **GUI Mode (Recommended):**
 ```bash
@@ -84,9 +74,13 @@ python gui.py
 python denoiserBatch.py
 ```
 
-### Building Installers
+---
 
-See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for creating standalone executables for all platforms:
+### Building Standalone Executables (Optional)
+
+Want to create a standalone .exe that doesn't require Python?
+
+See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for creating executables:
 - Windows: `.exe` executable
 - macOS: `.app` bundle and `.dmg` installer
 - Linux: AppImage and `.deb` package
