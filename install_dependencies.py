@@ -119,7 +119,8 @@ def verify_installation():
         'numpy': 'NumPy',
         'skimage': 'scikit-image',
         'scipy': 'SciPy',
-        'pywt': 'PyWavelets'
+        'pywt': 'PyWavelets',
+        'PIL': 'Pillow'
     }
     
     optional_packages = {
