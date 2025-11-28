@@ -41,9 +41,10 @@ A batch image denoising tool that applies multiple noise reduction filters and p
 
 3. **Use the interface:**
    - Click "Browse..." to select input and output folders
-   - Choose which filters to enable
+   - Choose which filters to enable (or use Quick Presets)
    - Adjust filter parameters if needed
    - Click "Start Processing"
+   - After processing, click "🔍 View Comparison" button to see before/after results
 
 ### Option 2: Command Line Mode (Advanced)
 
@@ -68,13 +69,36 @@ A batch image denoising tool that applies multiple noise reduction filters and p
 
 The tool processes all images in your input folder and applies three different denoising filters:
 
-- **Gaussian Filter** - Smooths noise using Gaussian blur
-- **Median Filter** - Removes salt-and-pepper noise
-- **Non-local Means** - Advanced filter that preserves edges and textures
+- **Gaussian Filter** - Fast smoothing, may blur details. Good for quick processing.
+- **Median Filter** - Excellent for salt-and-pepper noise and digital artifacts.
+- **Non-local Means ⭐** - **Best quality** - Preserves edges, textures, and fine details. Recommended for most photos.
 
 Each filter creates a separate output file with metrics showing noise reduction percentage and PSNR (Peak Signal-to-Noise Ratio).
 
+### 💡 Quick Tip
+For best results, **enable only Non-local Means** with sharpening. This gives the highest quality output while being faster than processing all three filters.
+
 ## Key Features
+
+### Quick Presets
+
+The GUI includes one-click presets that instantly configure optimal settings:
+
+- **📷 Photos** - Best for portraits, landscapes, general photos (Non-local Means only)
+- **📄 Documents** - Best for scanned documents and text (Median filter only)
+- **🌙 Low-Light** - Best for night photos and high ISO images (aggressive Non-local Means)
+- **🔍 Compare All** - Enable all filters to see which works best for your image
+
+### Interactive Before/After Comparison
+
+After processing images, click the **"🔍 View Comparison"** button to open an interactive comparison window:
+
+- **Always available** - Button appears after any successful processing
+- **Draggable slider** - Smoothly reveal the processed image over the original
+- **Real-time comparison** - See exactly what changed
+- **Easy evaluation** - Quickly judge if the denoising worked well
+
+This feature helps you evaluate results and decide which filter settings work best for your images. The comparison shows the first processed image with the first available filter output.
 
 ### Color Preservation Mode (Recommended)
 

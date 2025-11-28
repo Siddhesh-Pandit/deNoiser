@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+### 🎉 New Features
+
+#### Interactive Before/After Comparison
+- **"🔍 View Comparison" button** always visible in GUI (enabled after processing)
+- **Before/After comparison window** with draggable slider overlay
+- Automatically offered after processing with multiple filters
+- Smooth, real-time image reveal as you drag the slider
+- Visual evaluation of denoising effectiveness
+- Works with any filter configuration, available anytime after processing
+
 ## [2.0.0] - Major Refactor & GUI Addition
 
 ### 🎉 New Features

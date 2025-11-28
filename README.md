@@ -5,13 +5,15 @@ A powerful batch image denoising tool with GUI and CLI interfaces. Applies multi
 ## ✨ Features
 
 - **🖼️ GUI Application** - Easy-to-use graphical interface (no config editing needed)
+- **🎯 Quick Presets** - One-click optimization for Photos, Documents, Low-Light, or Compare All
+- **🔍 Before/After Comparison** - Interactive slider to compare original vs processed images
 - **⚡ Three Denoising Filters**:
-  - Gaussian Filter - General smoothing
+  - Gaussian Filter - Fast smoothing
   - Median Filter - Salt-and-pepper noise removal
-  - Non-local Means - Advanced edge-preserving denoising
-- **📊 Quality Metrics** - PSNR and noise reduction percentage for each filter
+  - Non-local Means ⭐ - **Best quality** - Preserves edges and details
+- **� Qualityr Metrics** - PSNR and noise reduction percentage for each filter
 - **🎛️ Fully Configurable** - Adjust all filter parameters
-- **📁 Batch Processing** - Process entire folders automatically
+- **� BSatch Processing** - Process entire folders automatically
 - **💾 Multiple Formats** - PNG, JPEG, TIFF, BMP, GIF support
 - **📈 CSV Reports** - Detailed metrics exported for analysis
 
@@ -153,8 +155,11 @@ image-denoiser/
 ├── color_utils.py             # Color preservation utilities
 ├── metrics.py                 # Metrics calculation
 ├── processor.py               # Batch processing logic
+├── tooltip.py                 # GUI tooltip utilities
 ├── config.ini                 # Configuration file
 ├── requirements.txt           # Dependencies
+├── icon.ico / icon.png        # Application icon (included)
+├── create_icon.py             # Icon generator script
 ├── USAGE.md                   # User guide
 ├── BUILD_INSTRUCTIONS.md      # Build standalone executable
 ├── build_installer.bat        # Windows installer builder

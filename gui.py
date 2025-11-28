@@ -5,10 +5,12 @@ import os
 import sys
 import threading
 import logging
+from PIL import Image, ImageTk
 from config_loader import DenoiserConfig, OutputConfig, FilterConfig, GaussianConfig, MedianConfig, NonLocalMeansConfig, RAWConfig
 from processor import ImageProcessor
 from metrics import save_metrics_to_csv
 from image_io import is_rawpy_available
+from tooltip import create_tooltip
 
 
 class TextHandler(logging.Handler):
@@ -26,13 +28,155 @@ class TextHandler(logging.Handler):
         self.text_widget.see(tk.END)
 
 
+class BeforeAfterWindow:
+    """Interactive before/after comparison window with draggable slider."""
+    
+    def __init__(self, parent, before_path, after_path, title="Before/After Comparison"):
+        self.window = tk.Toplevel(parent)
+        self.window.title(title)
+        self.window.geometry("1000x700")
+        
+        # Load images
+        self.before_img = Image.open(before_path)
+        self.after_img = Image.open(after_path)
+        
+        # Scale images to fit window while maintaining aspect ratio
+        max_width, max_height = 980, 600
+        self.scale_images(max_width, max_height)
+        
+        # Create canvas
+        self.canvas = tk.Canvas(self.window, width=self.display_width, height=self.display_height, 
+                               bg='black', highlightthickness=0)
+        self.canvas.pack(pady=10)
+        
+        # Convert to PhotoImage
+        self.before_photo = ImageTk.PhotoImage(self.before_scaled)
+        self.after_photo = ImageTk.PhotoImage(self.after_scaled)
+        
+        # Display images
+        self.canvas.create_image(0, 0, anchor=tk.NW, image=self.before_photo, tags="before")
+        self.after_id = self.canvas.create_image(0, 0, anchor=tk.NW, image=self.after_photo, tags="after")
+        
+        # Create slider line
+        self.slider_x = self.display_width // 2
+        self.slider_line = self.canvas.create_line(
+            self.slider_x, 0, self.slider_x, self.display_height,
+            fill='white', width=3, tags="slider"
+        )
+        
+        # Create slider handle
+        handle_y = self.display_height // 2
+        handle_size = 30
+        self.slider_handle = self.canvas.create_oval(
+            self.slider_x - handle_size, handle_y - handle_size,
+            self.slider_x + handle_size, handle_y + handle_size,
+            fill='white', outline='black', width=2, tags="slider"
+        )
+        
+        # Add labels on handle
+        self.canvas.create_text(
+            self.slider_x, handle_y - 5,
+            text="◀", fill='black', font=('Arial', 12, 'bold'), tags="slider"
+        )
+        self.canvas.create_text(
+            self.slider_x, handle_y + 5,
+            text="▶", fill='black', font=('Arial', 12, 'bold'), tags="slider"
+        )
+        
+        # Clip the after image
+        self.update_clip()
+        
+        # Info labels
+        info_frame = ttk.Frame(self.window)
+        info_frame.pack(pady=5)
+        
+        ttk.Label(info_frame, text="◀ BEFORE", font=('Arial', 10, 'bold')).pack(side=tk.LEFT, padx=20)
+        ttk.Label(info_frame, text="Drag the slider to compare", font=('Arial', 10)).pack(side=tk.LEFT, padx=20)
+        ttk.Label(info_frame, text="AFTER ▶", font=('Arial', 10, 'bold')).pack(side=tk.LEFT, padx=20)
+        
+        # Bind mouse events
+        self.canvas.bind('<Button-1>', self.on_click)
+        self.canvas.bind('<B1-Motion>', self.on_drag)
+        self.canvas.bind('<ButtonRelease-1>', self.on_release)
+        
+        self.dragging = False
+    
+    def scale_images(self, max_width, max_height):
+        """Scale images to fit display while maintaining aspect ratio."""
+        width, height = self.before_img.size
+        
+        # Calculate scale factor
+        scale_w = max_width / width
+        scale_h = max_height / height
+        scale = min(scale_w, scale_h, 1.0)  # Don't upscale
+        
+        self.display_width = int(width * scale)
+        self.display_height = int(height * scale)
+        
+        # Resize images
+        self.before_scaled = self.before_img.resize(
+            (self.display_width, self.display_height), 
+            Image.Resampling.LANCZOS
+        )
+        self.after_scaled = self.after_img.resize(
+            (self.display_width, self.display_height), 
+            Image.Resampling.LANCZOS
+        )
+    
+    def update_clip(self):
+        """Update the clipping region for the after image."""
+        # Create a clipped version of the after image
+        clipped = self.after_scaled.crop((0, 0, self.slider_x, self.display_height))
+        self.after_photo = ImageTk.PhotoImage(clipped)
+        self.canvas.itemconfig(self.after_id, image=self.after_photo)
+    
+    def on_click(self, event):
+        """Handle mouse click."""
+        # Check if click is near slider
+        if abs(event.x - self.slider_x) < 40:
+            self.dragging = True
+    
+    def on_drag(self, event):
+        """Handle mouse drag."""
+        if self.dragging:
+            # Constrain to canvas bounds
+            self.slider_x = max(0, min(event.x, self.display_width))
+            
+            # Update slider position
+            handle_y = self.display_height // 2
+            handle_size = 30
+            
+            self.canvas.coords(self.slider_line, 
+                             self.slider_x, 0, self.slider_x, self.display_height)
+            self.canvas.coords(self.slider_handle,
+                             self.slider_x - handle_size, handle_y - handle_size,
+                             self.slider_x + handle_size, handle_y + handle_size)
+            
+            # Update text positions
+            items = self.canvas.find_withtag("slider")
+            for item in items:
+                if self.canvas.type(item) == "text":
+                    _, y = self.canvas.coords(item)
+                    self.canvas.coords(item, self.slider_x, y)
+            
+            # Update clipping
+            self.update_clip()
+    
+    def on_release(self, event):
+        """Handle mouse release."""
+        self.dragging = False
+
+
 class DenoiserGUI:
     """GUI application for image denoising."""
     
     def __init__(self, root):
         self.root = root
         self.root.title("Image Denoiser")
-        self.root.geometry("800x700")
+        self.root.geometry("800x850")  # Increased height to always show logs
+        
+        # Set application icon if available
+        self.set_app_icon()
         
         # Variables
         self.input_path = tk.StringVar()
@@ -62,6 +206,7 @@ class DenoiserGUI:
         self.raw_mode = tk.StringVar(value="half")
         
         self.processing = False
+        self.last_processed_files = []  # Store paths for comparison
         
         self.create_widgets()
         self.setup_logging()
@@ -84,18 +229,29 @@ class DenoiserGUI:
         row += 1
         
         # Input selection
-        ttk.Label(main_frame, text="Input:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        input_label = ttk.Label(main_frame, text="Input:")
+        input_label.grid(row=row, column=0, sticky=tk.W, pady=5)
+        create_tooltip(input_label, "Select images to denoise:\n• Folder: Process all images in a folder\n• Files: Select specific images")
+        
         ttk.Entry(main_frame, textvariable=self.input_path, width=50).grid(row=row, column=1, sticky=(tk.W, tk.E), pady=5)
         
         # Input buttons frame
         input_btn_frame = ttk.Frame(main_frame)
         input_btn_frame.grid(row=row, column=2, padx=(5, 0), pady=5)
-        ttk.Button(input_btn_frame, text="Folder", command=self.browse_folder, width=8).pack(side=tk.LEFT, padx=2)
-        ttk.Button(input_btn_frame, text="Files", command=self.browse_files, width=8).pack(side=tk.LEFT, padx=2)
+        folder_btn = ttk.Button(input_btn_frame, text="Folder", command=self.browse_folder, width=8)
+        folder_btn.pack(side=tk.LEFT, padx=2)
+        create_tooltip(folder_btn, "Select a folder to process all images inside")
+        
+        files_btn = ttk.Button(input_btn_frame, text="Files", command=self.browse_files, width=8)
+        files_btn.pack(side=tk.LEFT, padx=2)
+        create_tooltip(files_btn, "Select one or more specific image files")
         row += 1
         
         # Output folder
-        ttk.Label(main_frame, text="Output Folder:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        output_label = ttk.Label(main_frame, text="Output Folder:")
+        output_label.grid(row=row, column=0, sticky=tk.W, pady=5)
+        create_tooltip(output_label, "Where to save denoised images")
+        
         ttk.Entry(main_frame, textvariable=self.output_path, width=50).grid(row=row, column=1, sticky=(tk.W, tk.E), pady=5)
         ttk.Button(main_frame, text="Browse...", command=self.browse_output).grid(row=row, column=2, padx=(5, 0), pady=5)
         row += 1
@@ -108,25 +264,39 @@ class DenoiserGUI:
         output_frame = ttk.LabelFrame(main_frame, text="Output Settings", padding="5")
         output_frame.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
         
-        ttk.Label(output_frame, text="Format:").grid(row=0, column=0, sticky=tk.W, padx=5)
+        format_label = ttk.Label(output_frame, text="Format:")
+        format_label.grid(row=0, column=0, sticky=tk.W, padx=5)
+        create_tooltip(format_label, "PNG: Lossless, best quality\nJPEG: Smaller files, some quality loss\nTIFF: Lossless, large files")
+        
         format_combo = ttk.Combobox(output_frame, textvariable=self.output_format, 
                                     values=["png", "jpg", "tiff"], state="readonly", width=10)
         format_combo.grid(row=0, column=1, sticky=tk.W, padx=5)
         
-        ttk.Label(output_frame, text="JPEG Quality:").grid(row=0, column=2, sticky=tk.W, padx=(20, 5))
+        quality_label = ttk.Label(output_frame, text="JPEG Quality:")
+        quality_label.grid(row=0, column=2, sticky=tk.W, padx=(20, 5))
+        create_tooltip(quality_label, "JPEG quality (1-100)\n90-95: High quality\n80-89: Good quality\n70-79: Medium quality")
+        
         ttk.Spinbox(output_frame, from_=1, to=100, textvariable=self.jpeg_quality, width=10).grid(row=0, column=3, sticky=tk.W, padx=5)
         
-        ttk.Checkbutton(output_frame, text="Preserve Color (denoise luminance only)", 
-                       variable=self.preserve_color).grid(row=1, column=0, columnspan=2, sticky=tk.W, padx=5, pady=5)
+        color_check = ttk.Checkbutton(output_frame, text="Preserve Color (denoise luminance only)", 
+                       variable=self.preserve_color)
+        color_check.grid(row=1, column=0, columnspan=2, sticky=tk.W, padx=5, pady=5)
+        create_tooltip(color_check, "Recommended: Denoises only brightness,\nkeeping colors vibrant and saturated.\nDisable for grayscale images.")
         
-        ttk.Checkbutton(output_frame, text="Apply Sharpening (restore structure)", 
-                       variable=self.apply_sharpening).grid(row=1, column=2, columnspan=2, sticky=tk.W, padx=5, pady=5)
+        sharpen_check = ttk.Checkbutton(output_frame, text="Apply Sharpening (recommended with Non-local)", 
+                       variable=self.apply_sharpening)
+        sharpen_check.grid(row=1, column=2, columnspan=2, sticky=tk.W, padx=5, pady=5)
+        create_tooltip(sharpen_check, "Restores structure and detail after denoising.\nWorks best with Non-local Means filter.")
         
         # Sharpening controls
-        ttk.Label(output_frame, text="Sharpen Amount:").grid(row=2, column=0, sticky=tk.W, padx=5)
+        amount_label = ttk.Label(output_frame, text="Sharpen Amount:")
+        amount_label.grid(row=2, column=0, sticky=tk.W, padx=5)
+        create_tooltip(amount_label, "Sharpening strength:\n0.5-1.0: Subtle\n1.0-1.5: Moderate (default)\n1.5-2.0: Strong")
         ttk.Spinbox(output_frame, from_=0.0, to=2.0, increment=0.1, textvariable=self.sharpen_amount, width=10).grid(row=2, column=1, sticky=tk.W, padx=5)
         
-        ttk.Label(output_frame, text="Sharpen Radius:").grid(row=2, column=2, sticky=tk.W, padx=(20, 5))
+        radius_label = ttk.Label(output_frame, text="Sharpen Radius:")
+        radius_label.grid(row=2, column=2, sticky=tk.W, padx=(20, 5))
+        create_tooltip(radius_label, "Sharpening radius:\n0.5-1.0: Fine details\n1.0-2.0: Balanced (default)\n2.0-3.0: Broader")
         ttk.Spinbox(output_frame, from_=0.5, to=3.0, increment=0.1, textvariable=self.sharpen_radius, width=10).grid(row=2, column=3, sticky=tk.W, padx=5)
         
         row += 1
@@ -135,30 +305,66 @@ class DenoiserGUI:
         ttk.Separator(main_frame, orient='horizontal').grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=10)
         row += 1
         
+        # Quick Presets section
+        presets_frame = ttk.LabelFrame(main_frame, text="Quick Presets", padding="5")
+        presets_frame.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        
+        ttk.Label(presets_frame, text="Optimize for:").grid(row=0, column=0, sticky=tk.W, padx=5)
+        
+        preset_photos = ttk.Button(presets_frame, text="📷 Photos", command=self.preset_photos, width=12)
+        preset_photos.grid(row=0, column=1, padx=5)
+        create_tooltip(preset_photos, "Best for: Portraits, landscapes, general photos\n• Non-local Means only\n• Color preservation ON\n• Sharpening ON")
+        
+        preset_docs = ttk.Button(presets_frame, text="📄 Documents", command=self.preset_documents, width=12)
+        preset_docs.grid(row=0, column=2, padx=5)
+        create_tooltip(preset_docs, "Best for: Scanned documents, text\n• Median filter only\n• Color preservation OFF\n• Sharpening ON")
+        
+        preset_lowlight = ttk.Button(presets_frame, text="🌙 Low-Light", command=self.preset_lowlight, width=12)
+        preset_lowlight.grid(row=0, column=3, padx=5)
+        create_tooltip(preset_lowlight, "Best for: Night photos, high ISO\n• Non-local Means (aggressive)\n• Color preservation ON\n• Sharpening ON")
+        
+        preset_compare = ttk.Button(presets_frame, text="🔍 Compare All", command=self.preset_compare, width=12)
+        preset_compare.grid(row=0, column=4, padx=5)
+        create_tooltip(preset_compare, "Compare all filters\n• All filters enabled\n• See which works best")
+        
+        row += 1
+        
         # Filters section
-        filters_frame = ttk.LabelFrame(main_frame, text="Filters", padding="5")
+        filters_frame = ttk.LabelFrame(main_frame, text="Filters (Tip: Non-local Means gives best results)", padding="5")
         filters_frame.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
         
         # Gaussian filter
         gaussian_check = ttk.Checkbutton(filters_frame, text="Gaussian Filter", variable=self.enable_gaussian)
         gaussian_check.grid(row=0, column=0, sticky=tk.W, pady=2)
-        ttk.Label(filters_frame, text="Sigma:").grid(row=0, column=1, sticky=tk.W, padx=(20, 5))
+        create_tooltip(gaussian_check, "Fast smoothing filter.\nGood for: Quick processing, backgrounds\nCons: May blur fine details")
+        
+        gaussian_sigma_label = ttk.Label(filters_frame, text="Sigma:")
+        gaussian_sigma_label.grid(row=0, column=1, sticky=tk.W, padx=(20, 5))
+        create_tooltip(gaussian_sigma_label, "Blur strength:\n0.5: Light smoothing\n0.75: Moderate (default)\n1.0-2.0: Heavy smoothing")
         ttk.Spinbox(filters_frame, from_=0.1, to=3.0, increment=0.1, textvariable=self.gaussian_sigma, width=10).grid(row=0, column=2, sticky=tk.W)
-        ttk.Label(filters_frame, text="(0.5-2.0 recommended)").grid(row=0, column=3, sticky=tk.W, padx=5)
+        ttk.Label(filters_frame, text="Fast, smooth - may blur details", foreground="gray").grid(row=0, column=3, sticky=tk.W, padx=5)
         
         # Median filter
         median_check = ttk.Checkbutton(filters_frame, text="Median Filter", variable=self.enable_median)
         median_check.grid(row=1, column=0, sticky=tk.W, pady=2)
-        ttk.Label(filters_frame, text="Size:").grid(row=1, column=1, sticky=tk.W, padx=(20, 5))
+        create_tooltip(median_check, "Removes salt-and-pepper noise.\nGood for: Scanned documents, digital artifacts\nCons: Can lose fine detail")
+        
+        median_size_label = ttk.Label(filters_frame, text="Size:")
+        median_size_label.grid(row=1, column=1, sticky=tk.W, padx=(20, 5))
+        create_tooltip(median_size_label, "Filter window size (odd numbers):\n3: Light filtering (default)\n5: Moderate\n7+: Heavy filtering")
         ttk.Spinbox(filters_frame, from_=3, to=11, increment=2, textvariable=self.median_size, width=10).grid(row=1, column=2, sticky=tk.W)
-        ttk.Label(filters_frame, text="(odd numbers only)").grid(row=1, column=3, sticky=tk.W, padx=5)
+        ttk.Label(filters_frame, text="Good for salt-and-pepper noise", foreground="gray").grid(row=1, column=3, sticky=tk.W, padx=5)
         
         # Non-local means filter
-        nonlocal_check = ttk.Checkbutton(filters_frame, text="Non-local Means", variable=self.enable_nonlocal)
+        nonlocal_check = ttk.Checkbutton(filters_frame, text="Non-local Means ⭐", variable=self.enable_nonlocal)
         nonlocal_check.grid(row=2, column=0, sticky=tk.W, pady=2)
-        ttk.Label(filters_frame, text="h multiplier:").grid(row=2, column=1, sticky=tk.W, padx=(20, 5))
+        create_tooltip(nonlocal_check, "⭐ RECOMMENDED - Best quality filter!\nPreserves edges, textures, and fine details.\nGood for: All photos, portraits, landscapes\nSlower but worth it!")
+        
+        nl_h_label = ttk.Label(filters_frame, text="h multiplier:")
+        nl_h_label.grid(row=2, column=1, sticky=tk.W, padx=(20, 5))
+        create_tooltip(nl_h_label, "Denoising strength:\n0.6-0.8: Preserve detail\n0.85: Balanced (default)\n1.0-1.5: More noise removal")
         ttk.Spinbox(filters_frame, from_=0.5, to=2.0, increment=0.05, textvariable=self.nl_h_multiplier, width=10).grid(row=2, column=2, sticky=tk.W)
-        ttk.Label(filters_frame, text="(0.8-1.5 recommended)").grid(row=2, column=3, sticky=tk.W, padx=5)
+        ttk.Label(filters_frame, text="Best quality - preserves edges & detail", foreground="green").grid(row=2, column=3, sticky=tk.W, padx=5)
         
         # Non-local means advanced
         ttk.Checkbutton(filters_frame, text="Fast mode", variable=self.nl_fast_mode).grid(row=3, column=0, sticky=tk.W, padx=(20, 0), pady=2)
@@ -186,7 +392,10 @@ class DenoiserGUI:
         raw_frame.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
         
         if raw_available:
-            ttk.Label(raw_frame, text="Processing Mode:").grid(row=0, column=0, sticky=tk.W, padx=5)
+            raw_mode_label = ttk.Label(raw_frame, text="Processing Mode:")
+            raw_mode_label.grid(row=0, column=0, sticky=tk.W, padx=5)
+            create_tooltip(raw_mode_label, "RAW processing mode:\nFull: Best quality, slowest\nHalf: Balanced (recommended)\nPreview: Fastest, lower quality")
+            
             raw_combo = ttk.Combobox(raw_frame, textvariable=self.raw_mode, 
                                     values=["full", "half", "preview"], state="readonly", width=15)
             raw_combo.grid(row=0, column=1, sticky=tk.W, padx=5)
@@ -204,9 +413,18 @@ class DenoiserGUI:
         ttk.Separator(main_frame, orient='horizontal').grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=10)
         row += 1
         
-        # Process button
-        self.process_btn = ttk.Button(main_frame, text="Start Processing", command=self.start_processing)
-        self.process_btn.grid(row=row, column=0, columnspan=3, pady=10)
+        # Action buttons frame
+        button_frame = ttk.Frame(main_frame)
+        button_frame.grid(row=row, column=0, columnspan=3, pady=10)
+        
+        self.process_btn = ttk.Button(button_frame, text="Start Processing", command=self.start_processing, width=20)
+        self.process_btn.pack(side=tk.LEFT, padx=5)
+        
+        self.compare_btn = ttk.Button(button_frame, text="🔍 View Comparison", command=self.show_comparison_window, width=20)
+        self.compare_btn.pack(side=tk.LEFT, padx=5)
+        self.compare_btn.config(state='disabled')  # Disabled until processing completes
+        create_tooltip(self.compare_btn, "View before/after comparison of processed images\n(Available after processing)")
+        
         row += 1
         
         # Progress section
@@ -234,6 +452,20 @@ class DenoiserGUI:
         
         self.log_text = scrolledtext.ScrolledText(log_frame, height=12, state='disabled', wrap=tk.WORD)
         self.log_text.pack(fill=tk.BOTH, expand=True)
+    
+    def set_app_icon(self):
+        """Set application icon if available."""
+        try:
+            # Try to load icon file
+            if os.path.exists('icon.ico'):
+                self.root.iconbitmap('icon.ico')
+            elif os.path.exists('icon.png'):
+                # For PNG, convert to PhotoImage (works on all platforms)
+                icon_image = tk.PhotoImage(file='icon.png')
+                self.root.iconphoto(True, icon_image)
+        except Exception as e:
+            # Silently fail if icon can't be loaded
+            pass
     
     def setup_logging(self):
         """Setup logging to GUI text widget."""
@@ -387,12 +619,138 @@ class DenoiserGUI:
         thread = threading.Thread(target=self.process_images, daemon=True)
         thread.start()
     
+    def preset_photos(self):
+        """Apply preset for photos (portraits, landscapes)."""
+        self.enable_gaussian.set(False)
+        self.enable_median.set(False)
+        self.enable_nonlocal.set(True)
+        self.nl_h_multiplier.set(0.85)
+        self.nl_patch_size.set(3)
+        self.nl_patch_distance.set(3)
+        self.preserve_color.set(True)
+        self.apply_sharpening.set(True)
+        self.sharpen_amount.set(1.2)
+        self.sharpen_radius.set(1.5)
+        self.log_message("Applied preset: Photos (portraits, landscapes)")
+    
+    def preset_documents(self):
+        """Apply preset for scanned documents."""
+        self.enable_gaussian.set(False)
+        self.enable_median.set(True)
+        self.enable_nonlocal.set(False)
+        self.median_size.set(3)
+        self.preserve_color.set(False)
+        self.apply_sharpening.set(True)
+        self.sharpen_amount.set(1.5)
+        self.sharpen_radius.set(1.0)
+        self.log_message("Applied preset: Documents (scanned text)")
+    
+    def preset_lowlight(self):
+        """Apply preset for low-light/high ISO photos."""
+        self.enable_gaussian.set(False)
+        self.enable_median.set(False)
+        self.enable_nonlocal.set(True)
+        self.nl_h_multiplier.set(1.2)
+        self.nl_patch_size.set(5)
+        self.nl_patch_distance.set(5)
+        self.preserve_color.set(True)
+        self.apply_sharpening.set(True)
+        self.sharpen_amount.set(1.5)
+        self.sharpen_radius.set(1.5)
+        self.log_message("Applied preset: Low-Light (night photos, high ISO)")
+    
+    def preset_compare(self):
+        """Apply preset to compare all filters."""
+        self.enable_gaussian.set(True)
+        self.enable_median.set(True)
+        self.enable_nonlocal.set(True)
+        self.gaussian_sigma.set(0.75)
+        self.median_size.set(3)
+        self.nl_h_multiplier.set(0.85)
+        self.nl_patch_size.set(3)
+        self.nl_patch_distance.set(3)
+        self.preserve_color.set(True)
+        self.apply_sharpening.set(False)
+        self.log_message("Applied preset: Compare All Filters")
+    
+    def log_message(self, message):
+        """Add a message to the log."""
+        self.log_text.configure(state='normal')
+        self.log_text.insert(tk.END, f"ℹ {message}\n")
+        self.log_text.configure(state='disabled')
+        self.log_text.see(tk.END)
+    
     def update_progress(self, current, total, filename):
         """Update progress bar and labels."""
         progress = (current / total * 100) if total > 0 else 0
         self.progress_bar['value'] = progress
         self.progress_percent.config(text=f"{progress:.1f}%")
         self.progress_label.config(text=f"Processing: {filename} ({current}/{total})")
+    
+    def show_comparison_dialog(self, processed_count, csv_file):
+        """Show success dialog with option to view comparison."""
+        # Check if we should offer comparison (non-Photos preset or Compare All)
+        multiple_filters = sum([
+            self.enable_gaussian.get(),
+            self.enable_median.get(),
+            self.enable_nonlocal.get()
+        ]) > 1
+        
+        if multiple_filters and self.last_processed_files:
+            response = messagebox.askyesno(
+                "Success", 
+                f"Successfully processed {processed_count} images!\n\n"
+                f"Metrics saved to:\n{csv_file}\n\n"
+                "Would you like to view a before/after comparison?"
+            )
+            if response:
+                self.show_comparison_window()
+        else:
+            messagebox.showinfo(
+                "Success", 
+                f"Successfully processed {processed_count} images!\n\nMetrics saved to:\n{csv_file}"
+            )
+    
+    def show_comparison_window(self):
+        """Open before/after comparison window for first processed image."""
+        if not self.last_processed_files:
+            messagebox.showinfo("No Images", "Please process some images first before viewing comparison.")
+            return
+        
+        # Use first processed file
+        original_path = self.last_processed_files[0]
+        
+        # Find corresponding output file
+        config = self.create_config()
+        base_name = os.path.splitext(os.path.basename(original_path))[0]
+        
+        # Check for different filter outputs
+        filter_suffixes = []
+        if self.enable_gaussian.get():
+            filter_suffixes.append('gaussian')
+        if self.enable_median.get():
+            filter_suffixes.append('median')
+        if self.enable_nonlocal.get():
+            filter_suffixes.append('nonlocal')
+        
+        # If multiple filters, show first one found
+        output_path = None
+        for suffix in filter_suffixes:
+            test_path = os.path.join(
+                config.output_path,
+                f"{base_name}_{suffix}.{config.output.format}"
+            )
+            if os.path.exists(test_path):
+                output_path = test_path
+                break
+        
+        if output_path and os.path.exists(output_path):
+            try:
+                BeforeAfterWindow(self.root, original_path, output_path)
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not open comparison window:\n{str(e)}")
+        else:
+            messagebox.showwarning("Warning", "Could not find processed image for comparison")
     
     def process_images(self):
         """Process images (runs in separate thread)."""
@@ -408,6 +766,9 @@ class DenoiserGUI:
                 logger.info(f"Processing {len(files_to_process)} selected files")
                 logger.info(f"Output folder: {config.output_path}")
                 
+                # Store for comparison
+                self.last_processed_files = files_to_process.copy()
+                
                 # Process selected files directly with progress callback
                 processor = ImageProcessor(config)
                 processed_count, metrics_list = processor.process_files(
@@ -417,6 +778,15 @@ class DenoiserGUI:
             else:
                 logger.info(f"Input folder: {config.input_path}")
                 logger.info(f"Output folder: {config.output_path}")
+                
+                # Get list of files in folder for comparison
+                import glob
+                pattern = os.path.join(config.input_path, "*")
+                all_files = glob.glob(pattern)
+                image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.tif', 
+                                  '.nef', '.cr2', '.cr3', '.arw', '.dng', '.raf', '.orf', '.rw2', '.raw'}
+                self.last_processed_files = [f for f in all_files 
+                                            if os.path.splitext(f.lower())[1] in image_extensions]
                 
                 # Process entire folder with progress callback
                 processor = ImageProcessor(config)
@@ -434,14 +804,15 @@ class DenoiserGUI:
                 self.root.after(0, lambda: self.progress_percent.config(text="100%"))
                 self.root.after(0, lambda: self.progress_label.config(text=f"Complete! Processed {processed_count} images"))
                 
+                # Enable Compare button
+                self.root.after(0, lambda: self.compare_btn.config(state='normal'))
+                
                 # Brief pause to show completion before dialog (1 second)
                 import time
                 time.sleep(1)
                 
-                self.root.after(0, lambda: messagebox.showinfo(
-                    "Success", 
-                    f"Successfully processed {processed_count} images!\n\nMetrics saved to:\n{csv_file}"
-                ))
+                # Show dialog with comparison option
+                self.root.after(0, lambda: self.show_comparison_dialog(processed_count, csv_file))
             else:
                 logger.warning("No images were processed")
                 self.root.after(0, lambda: self.progress_label.config(text="No images processed"))
