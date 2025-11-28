@@ -1,3 +1,8 @@
+# Copyright (c) 2025 Adwait Godbole and Siddhesh Pandit
+# Licensed under CC BY-NC 4.0 (Attribution-NonCommercial 4.0 International)
+# https://creativecommons.org/licenses/by-nc/4.0/
+# For commercial use, please contact the authors.
+
 """Main entry point for batch image denoising."""
 import logging
 from config_loader import load_config

@@ -224,3 +224,28 @@ Left: After denoising | Right: Before denoising
 ## 👥 Maintainers
 - Adwait Godbole
 - Siddhesh Pandit
+
+## 📄 License
+
+This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license.
+
+**You are free to:**
+- ✅ Use for personal projects
+- ✅ Use for educational purposes
+- ✅ Use for research
+- ✅ Modify and adapt the code
+- ✅ Share with others
+
+**You may NOT:**
+- ❌ Use for commercial purposes
+- ❌ Sell the software or derivatives
+- ❌ Use in commercial products or services
+
+**Requirements:**
+- Give appropriate credit to the authors
+- Indicate if changes were made
+- Provide a link to the license
+
+For commercial use inquiries, please contact the maintainers.
+
+See [LICENSE](LICENSE) file for full details.
