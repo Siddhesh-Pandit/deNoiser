@@ -177,8 +177,11 @@ class ImageProcessor:
                     except Exception:
                         pass
                 
-                # Apply Non-local means
-                if self.config.filters.enable_nonlocal:
+                # Apply Non-local means (or AI if enabled without classical filters)
+                if self.config.filters.enable_nonlocal or (self.config.ai_denoiser.enable_ai and not any([
+                    self.config.filters.enable_gaussian,
+                    self.config.filters.enable_median
+                ])):
                     filters_attempted += 1
                     try:
                         self._apply_and_save_filter(
@@ -192,7 +195,7 @@ class ImageProcessor:
                                 self.config.output.preserve_color
                             ),
                             filter_name='nonlocal',
-                            filter_params=f"h={self.config.nonlocal_means.h_multiplier}×σ" + (" [color-preserving]" if self.config.output.preserve_color else ""),
+                            filter_params=f"h={self.config.nonlocal_means.h_multiplier}×σ" + (" [color-preserving]" if self.config.output.preserve_color else "") if self.config.filters.enable_nonlocal else "AI only",
                             mask=mask
                         )
                         filters_succeeded += 1
