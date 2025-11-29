@@ -1,0 +1,10 @@
+# Optional AI/ML dependencies for neural network-based denoising
+# Install with: pip install -r requirements-ai.txt
+
+# PyTorch (CPU version - smaller download)
+# For GPU support, install from pytorch.org with CUDA
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Note: Models (~3-9MB) will be downloaded automatically on first use
+# Models are stored in: ~/.imagedenoiser/models/

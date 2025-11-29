@@ -43,6 +43,13 @@ Get Image Denoiser running on Windows in 5 minutes or less.
    - Or use `run_gui_debug.bat` to see console output for debugging
 2. Start denoising!
 
+#### Optional: AI Denoising (Better Quality)
+1. In the GUI, check "Enable AI Denoiser 🤖"
+2. Click "Yes" to install AI dependencies (~500MB)
+3. Wait for installation (3-5 minutes)
+4. Restart the app
+5. Enjoy better denoising quality!
+
 ---
 
 ## First Time Using the App?
@@ -107,6 +114,7 @@ After installation, you'll have:
   ├── 🚀 run_gui.bat          ← Double-click this to start (no console)
   ├── 🔧 run_gui_debug.bat    ← Use this to see console output
   ├── ⚙️ install_dependencies.bat  ← Run this first (if from source)
+  ├── 🤖 install_ai.bat       ← Optional: Install AI denoising
   ├── 📝 config.ini           ← Settings file
   ├── 🐍 gui.py               ← Main program
   └── 📖 USAGE.md             ← Full documentation

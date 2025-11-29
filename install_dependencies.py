@@ -100,6 +100,51 @@ def install_dependencies():
             print()
     
     print("-" * 60)
+    print("✓ Core installation complete!")
+    print()
+    
+    # Ask about AI dependencies
+    print("=" * 60)
+    print("Optional: AI Denoising Support")
+    print("=" * 60)
+    print()
+    print("AI denoising provides better quality but requires PyTorch (~500MB).")
+    print()
+    
+    try:
+        response = input("Install AI dependencies? (y/n): ").strip().lower()
+        if response in ['y', 'yes']:
+            print()
+            print("Installing AI dependencies (PyTorch)...")
+            print("This may take several minutes...")
+            print()
+            
+            try:
+                subprocess.run(
+                    [sys.executable, "-m", "pip", "install", "-r", "requirements-ai.txt"],
+                    check=True
+                )
+                print()
+                print("✓ AI dependencies installed successfully!")
+                print()
+            except subprocess.CalledProcessError:
+                print()
+                print("⚠ AI installation failed")
+                print("  You can install it later with:")
+                print("    pip install -r requirements-ai.txt")
+                print()
+        else:
+            print()
+            print("Skipping AI dependencies.")
+            print("You can install them later with:")
+            print("  pip install -r requirements-ai.txt")
+            print()
+    except (KeyboardInterrupt, EOFError):
+        print()
+        print("Skipping AI dependencies.")
+        print()
+    
+    print("-" * 60)
     print("✓ Installation complete!")
     print()
     print("You can now run the denoiser:")

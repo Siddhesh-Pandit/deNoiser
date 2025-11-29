@@ -22,6 +22,8 @@ class OutputConfig:
     sharpen_radius: float
     boost_saturation: bool
     saturation_amount: float
+    boost_brightness: bool
+    brightness_amount: float
 
 
 @dataclass
@@ -60,6 +62,14 @@ class RAWConfig:
 
 
 @dataclass
+class AIDenoiserConfig:
+    """AI denoiser configuration."""
+    enable_ai: bool
+    model_name: str  # 'scunet' or 'nafnet'
+    device: str  # 'auto', 'cuda', 'mps', or 'cpu'
+
+
+@dataclass
 class DenoiserConfig:
     """Complete denoiser configuration."""
     input_path: str
@@ -70,6 +80,7 @@ class DenoiserConfig:
     median: MedianConfig
     nonlocal_means: NonLocalMeansConfig
     raw: RAWConfig
+    ai_denoiser: AIDenoiserConfig
 
 
 def load_config(config_path='config.ini'):
@@ -103,7 +114,11 @@ def load_config(config_path='config.ini'):
         preserve_color=config.getboolean('Output', 'preserve_color', fallback=True),
         apply_sharpening=config.getboolean('Output', 'apply_sharpening', fallback=False),
         sharpen_amount=config.getfloat('Output', 'sharpen_amount', fallback=1.2),
-        sharpen_radius=config.getfloat('Output', 'sharpen_radius', fallback=1.5)
+        sharpen_radius=config.getfloat('Output', 'sharpen_radius', fallback=1.5),
+        boost_saturation=config.getboolean('Output', 'boost_saturation', fallback=False),
+        saturation_amount=config.getfloat('Output', 'saturation_amount', fallback=1.3),
+        boost_brightness=config.getboolean('Output', 'boost_brightness', fallback=False),
+        brightness_amount=config.getfloat('Output', 'brightness_amount', fallback=1.1)
     )
     
     # Load filter toggles
@@ -134,6 +149,13 @@ def load_config(config_path='config.ini'):
         processing_mode=config.get('RAW', 'processing_mode', fallback='half')
     )
     
+    # Load AI denoiser settings
+    ai_denoiser = AIDenoiserConfig(
+        enable_ai=config.getboolean('AIDenoiser', 'enable_ai', fallback=False),
+        model_name=config.get('AIDenoiser', 'model_name', fallback='scunet'),
+        device=config.get('AIDenoiser', 'device', fallback='auto')
+    )
+    
     return DenoiserConfig(
         input_path=input_path,
         output_path=output_path,
@@ -142,5 +164,6 @@ def load_config(config_path='config.ini'):
         gaussian=gaussian,
         median=median,
         nonlocal_means=nonlocal_means,
-        raw=raw
+        raw=raw,
+        ai_denoiser=ai_denoiser
     )

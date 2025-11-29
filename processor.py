@@ -308,10 +308,39 @@ class ImageProcessor:
             mask: Optional mask array for selective denoising (0-1 float)
         """
         try:
-            # Apply filter
-            filtered_img = filter_func()
+            # Check if AI denoising is enabled
+            if self.config.ai_denoiser.enable_ai:
+                try:
+                    from ai_denoiser import denoise_with_ai, is_ai_available
+                    
+                    if is_ai_available():
+                        self.logger.info(f"  Using AI denoiser: {self.config.ai_denoiser.model_name}")
+                        
+                        # Determine device
+                        device = None if self.config.ai_denoiser.device == 'auto' else self.config.ai_denoiser.device
+                        
+                        # AI denoise
+                        filtered_img = denoise_with_ai(
+                            img,
+                            model_name=self.config.ai_denoiser.model_name,
+                            device=device,
+                            progress_callback=lambda c, t, m: self.logger.info(f"    {m}")
+                        )
+                        
+                        filter_name = f"{filter_name}_ai"
+                        self.logger.info(f"  ✓ AI denoising complete")
+                    else:
+                        self.logger.warning("  AI dependencies not available, using classical filters")
+                        filtered_img = filter_func()
+                except Exception as e:
+                    self.logger.error(f"  AI denoising failed: {e}")
+                    self.logger.info("  Falling back to classical filters")
+                    filtered_img = filter_func()
+            else:
+                # Classical denoising
+                filtered_img = filter_func()
             
-            # Apply mask if provided (selective denoising)
+            # Apply mask if provided (selective denoising - works for both AI and classical)
             if mask is not None:
                 import numpy as np
                 # Ensure mask matches image dimensions
@@ -388,6 +417,33 @@ class ImageProcessor:
                     saturation_tag = ""
                 
                 self.logger.info(f"  ✓ Boosted saturation (amount={self.config.output.saturation_amount}){saturation_tag}")
+            
+            # Apply optional brightness boost
+            if self.config.output.boost_brightness:
+                from image_filters import boost_brightness
+                import numpy as np
+                
+                # Apply brightness boost
+                brightened_img = boost_brightness(
+                    filtered_img,
+                    amount=self.config.output.brightness_amount
+                )
+                
+                # If mask is present, only boost brightness in masked areas
+                if mask is not None:
+                    # Expand mask to match image channels if needed
+                    mask_for_brightness = mask
+                    if filtered_img.ndim == 3 and mask_for_brightness.ndim == 2:
+                        mask_for_brightness = np.expand_dims(mask_for_brightness, axis=2)
+                    
+                    # Blend: brightened in masked areas, original filtered in unmasked areas
+                    filtered_img = (brightened_img * mask_for_brightness + filtered_img * (1 - mask_for_brightness)).astype(filtered_img.dtype)
+                    brightness_tag = " [masked areas only]"
+                else:
+                    filtered_img = brightened_img
+                    brightness_tag = ""
+                
+                self.logger.info(f"  ✓ Boosted brightness (amount={self.config.output.brightness_amount}){brightness_tag}")
             
             # Save filtered image
             output_filename = get_output_filename(

@@ -370,11 +370,18 @@ class DenoiserGUI:
         self.sharpen_radius = tk.DoubleVar(value=1.5)
         self.boost_saturation = tk.BooleanVar(value=False)
         self.saturation_amount = tk.DoubleVar(value=1.3)
+        self.boost_brightness = tk.BooleanVar(value=False)
+        self.brightness_amount = tk.DoubleVar(value=1.1)
         
         # Filter toggles
         self.enable_gaussian = tk.BooleanVar(value=True)
         self.enable_median = tk.BooleanVar(value=True)
         self.enable_nonlocal = tk.BooleanVar(value=True)
+        
+        # AI Denoiser
+        self.enable_ai = tk.BooleanVar(value=False)
+        self.ai_model = tk.StringVar(value='scunet')
+        self.ai_device = tk.StringVar(value='auto')
         
         # Filter parameters
         self.gaussian_sigma = tk.DoubleVar(value=0.75)
@@ -522,17 +529,28 @@ class DenoiserGUI:
         create_tooltip(saturation_label, "Saturation boost strength:\n1.0: No change\n1.3: Moderate (default)\n1.5-2.0: Strong")
         ttk.Spinbox(output_frame, from_=1.0, to=2.0, increment=0.1, textvariable=self.saturation_amount, width=10).grid(row=3, column=3, sticky=tk.W, padx=5)
         
+        # Brightness boost
+        brightness_check = ttk.Checkbutton(output_frame, text="Boost Brightness (lighten image)", 
+                       variable=self.boost_brightness)
+        brightness_check.grid(row=4, column=0, columnspan=2, sticky=tk.W, padx=5, pady=5)
+        create_tooltip(brightness_check, "Increase image brightness/luminance.\nUseful if denoising darkens the image.")
+        
+        brightness_label = ttk.Label(output_frame, text="Brightness Amount:")
+        brightness_label.grid(row=4, column=2, sticky=tk.W, padx=(20, 5))
+        create_tooltip(brightness_label, "Brightness boost strength:\n1.0: No change\n1.1: Subtle (default)\n1.2-1.5: Strong")
+        ttk.Spinbox(output_frame, from_=0.8, to=1.5, increment=0.05, textvariable=self.brightness_amount, width=10).grid(row=4, column=3, sticky=tk.W, padx=5)
+        
         # Selective denoising (Edit Mask)
-        ttk.Separator(output_frame, orient='horizontal').grid(row=4, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=10)
+        ttk.Separator(output_frame, orient='horizontal').grid(row=5, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=10)
         
         self.edit_mask_btn = ttk.Button(output_frame, text="🎨 Edit Mask (Selective Denoising)", 
                                         command=self.open_mask_editor, width=35)
-        self.edit_mask_btn.grid(row=5, column=0, columnspan=2, sticky=tk.W, padx=5, pady=5)
+        self.edit_mask_btn.grid(row=6, column=0, columnspan=2, sticky=tk.W, padx=5, pady=5)
         self.edit_mask_btn.config(state='disabled')
         create_tooltip(self.edit_mask_btn, "Paint areas to denoise.\nOnly masked areas will be processed.\n(Available for single file selection)")
         
         self.mask_status = ttk.Label(output_frame, text="", foreground="green", font=('Arial', 9, 'bold'))
-        self.mask_status.grid(row=5, column=2, columnspan=2, sticky=tk.W, padx=5)
+        self.mask_status.grid(row=6, column=2, columnspan=2, sticky=tk.W, padx=5)
         
         row += 1
         
@@ -579,6 +597,36 @@ class DenoiserGUI:
         ttk.Spinbox(filters_frame, from_=3, to=9, increment=2, textvariable=self.nl_patch_size, width=10).grid(row=3, column=2, sticky=tk.W)
         ttk.Label(filters_frame, text="Patch distance:").grid(row=4, column=1, sticky=tk.W, padx=(20, 5))
         ttk.Spinbox(filters_frame, from_=3, to=15, increment=2, textvariable=self.nl_patch_distance, width=10).grid(row=4, column=2, sticky=tk.W)
+        
+        row += 1
+        
+        # AI Denoiser section
+        ai_frame = ttk.LabelFrame(main_frame, text="AI Denoiser (Optional - Requires PyTorch)", padding="5")
+        ai_frame.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        
+        ai_check = ttk.Checkbutton(ai_frame, text="Enable AI Denoiser 🤖", 
+                                   variable=self.enable_ai,
+                                   command=self.on_ai_toggle)
+        ai_check.grid(row=0, column=0, sticky=tk.W, pady=2)
+        create_tooltip(ai_check, "Use neural network for denoising.\nBetter quality but slower.\nRequires: pip install -r requirements-ai.txt")
+        
+        ttk.Label(ai_frame, text="Model:").grid(row=0, column=1, sticky=tk.W, padx=(20, 5))
+        model_combo = ttk.Combobox(ai_frame, textvariable=self.ai_model,
+                                   values=['scunet', 'nafnet'], width=10, state='readonly')
+        model_combo.grid(row=0, column=2, sticky=tk.W)
+        create_tooltip(model_combo, "SCUNet: Faster, 3MB model\nNAFNet: Better quality, 9MB model")
+        
+        self.ai_status_label = ttk.Label(ai_frame, text="", foreground="blue")
+        self.ai_status_label.grid(row=0, column=3, sticky=tk.W, padx=10)
+        
+        # Reinstall/Update button
+        self.ai_reinstall_btn = ttk.Button(ai_frame, text="⚙️ GPU Setup", 
+                                           command=self.show_pytorch_options, width=12)
+        self.ai_reinstall_btn.grid(row=1, column=0, columnspan=2, sticky=tk.W, padx=5, pady=5)
+        create_tooltip(self.ai_reinstall_btn, "Install or update PyTorch with GPU support.\nUse this to add NVIDIA/AMD GPU support.")
+        
+        # Check AI availability on startup
+        self.check_ai_availability()
         
         row += 1
         
@@ -652,12 +700,21 @@ class DenoiserGUI:
         
         row += 1
         
-        # Log output
+        # Log output with button
         log_frame = ttk.LabelFrame(main_frame, text="Processing Log", padding="5")
         log_frame.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
         main_frame.rowconfigure(row, weight=1)
         
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=12, state='disabled', wrap=tk.WORD)
+        # Log controls
+        log_controls = ttk.Frame(log_frame)
+        log_controls.pack(fill=tk.X, pady=(0, 5))
+        
+        ttk.Button(log_controls, text="📋 View in Separate Window", 
+                  command=self.show_log_window, width=25).pack(side=tk.LEFT, padx=5)
+        ttk.Button(log_controls, text="🗑️ Clear Log", 
+                  command=self.clear_log, width=12).pack(side=tk.LEFT, padx=5)
+        
+        self.log_text = scrolledtext.ScrolledText(log_frame, height=8, state='disabled', wrap=tk.WORD)
         self.log_text.pack(fill=tk.BOTH, expand=True)
     
     def set_app_icon(self):
@@ -840,8 +897,18 @@ class DenoiserGUI:
                 messagebox.showerror("Error", "Input folder does not exist")
                 return False
         
-        if not (self.enable_gaussian.get() or self.enable_median.get() or self.enable_nonlocal.get()):
-            messagebox.showerror("Error", "Please enable at least one filter")
+        # Check if at least one denoising method is enabled (classical filters OR AI)
+        has_classical = self.enable_gaussian.get() or self.enable_median.get() or self.enable_nonlocal.get()
+        has_ai = self.enable_ai.get()
+        
+        if not (has_classical or has_ai):
+            messagebox.showerror(
+                "Error", 
+                "Please enable at least one denoising method:\n\n"
+                "• Classical filters (Gaussian/Median/Non-local Means)\n"
+                "• AI Denoiser\n\n"
+                "Or enable both for comparison."
+            )
             return False
         
         return True
@@ -857,7 +924,9 @@ class DenoiserGUI:
             sharpen_amount=self.sharpen_amount.get(),
             sharpen_radius=self.sharpen_radius.get(),
             boost_saturation=self.boost_saturation.get(),
-            saturation_amount=self.saturation_amount.get()
+            saturation_amount=self.saturation_amount.get(),
+            boost_brightness=self.boost_brightness.get(),
+            brightness_amount=self.brightness_amount.get()
         )
         
         filters = FilterConfig(
@@ -886,6 +955,14 @@ class DenoiserGUI:
         else:
             input_path = self.input_path.get()
         
+        # AI Denoiser config
+        from config_loader import AIDenoiserConfig
+        ai_denoiser = AIDenoiserConfig(
+            enable_ai=self.enable_ai.get(),
+            model_name=self.ai_model.get(),
+            device=self.ai_device.get()
+        )
+        
         return DenoiserConfig(
             input_path=input_path,
             output_path=self.output_path.get(),
@@ -894,7 +971,8 @@ class DenoiserGUI:
             gaussian=gaussian,
             median=median,
             nonlocal_means=nonlocal_means,
-            raw=raw
+            raw=raw,
+            ai_denoiser=ai_denoiser
         )
     
     def start_processing(self):
@@ -911,8 +989,9 @@ class DenoiserGUI:
         self.log_text.delete(1.0, tk.END)
         self.log_text.configure(state='disabled')
         
-        # Disable button
+        # Disable buttons during processing
         self.process_btn.config(state='disabled', text="Processing...")
+        self.compare_btn.config(state='disabled')
         self.processing = True
         
         # Reset progress
@@ -978,6 +1057,465 @@ class DenoiserGUI:
         self.apply_sharpening.set(False)
         self.log_message("Applied preset: Compare All Filters")
     
+    def check_ai_availability(self):
+        """Check if AI dependencies are available."""
+        try:
+            from ai_denoiser import is_ai_available, get_device
+            if is_ai_available():
+                device, device_desc = get_device()
+                self.ai_status_label.config(
+                    text=f"✓ Available ({device_desc})",
+                    foreground="green"
+                )
+            else:
+                self.ai_status_label.config(
+                    text="⚠ PyTorch not installed",
+                    foreground="orange"
+                )
+                self.enable_ai.set(False)
+        except Exception as e:
+            self.ai_status_label.config(
+                text="⚠ Not available",
+                foreground="orange"
+            )
+            self.enable_ai.set(False)
+    
+    def show_pytorch_options(self):
+        """Show PyTorch installation options dialog."""
+        options_window = tk.Toplevel(self.root)
+        options_window.title("PyTorch Installation Options")
+        options_window.geometry("600x500")
+        options_window.transient(self.root)
+        options_window.grab_set()
+        
+        ttk.Label(options_window, text="Select PyTorch Version", 
+                 font=('Arial', 14, 'bold')).pack(pady=20)
+        
+        ttk.Label(options_window, text="Choose the version that matches your hardware:",
+                 font=('Arial', 10)).pack(pady=5)
+        
+        # Options frame
+        options_frame = ttk.Frame(options_window)
+        options_frame.pack(pady=20, padx=20, fill=tk.BOTH, expand=True)
+        
+        install_choice = tk.StringVar(value='cpu')
+        
+        # CPU option
+        cpu_radio = ttk.Radiobutton(options_frame, text="CPU Only (No GPU)", 
+                                    variable=install_choice, value='cpu')
+        cpu_radio.grid(row=0, column=0, sticky=tk.W, pady=5)
+        ttk.Label(options_frame, text="• Works on any computer\n• Slower (30-60s per image)\n• ~500MB download",
+                 foreground="gray").grid(row=1, column=0, sticky=tk.W, padx=20, pady=2)
+        
+        # NVIDIA option
+        nvidia_radio = ttk.Radiobutton(options_frame, text="NVIDIA GPU (CUDA)", 
+                                      variable=install_choice, value='cuda')
+        nvidia_radio.grid(row=2, column=0, sticky=tk.W, pady=5)
+        ttk.Label(options_frame, text="• For NVIDIA GeForce/RTX/Quadro GPUs\n• Fast (2-5s per image)\n• ~2GB download",
+                 foreground="gray").grid(row=3, column=0, sticky=tk.W, padx=20, pady=2)
+        
+        # AMD option
+        amd_radio = ttk.Radiobutton(options_frame, text="AMD GPU (ROCm) - Linux Only", 
+                                   variable=install_choice, value='rocm')
+        amd_radio.grid(row=4, column=0, sticky=tk.W, pady=5)
+        ttk.Label(options_frame, text="• For AMD Radeon RX 6000/7000 series\n• Fast (3-8s per image)\n• ~2GB download\n• Requires ROCm drivers (Linux only)",
+                 foreground="gray").grid(row=5, column=0, sticky=tk.W, padx=20, pady=2)
+        
+        # Apple Silicon option
+        if sys.platform == 'darwin':
+            apple_radio = ttk.Radiobutton(options_frame, text="Apple Silicon (M1/M2/M3)", 
+                                         variable=install_choice, value='mps')
+            apple_radio.grid(row=6, column=0, sticky=tk.W, pady=5)
+            ttk.Label(options_frame, text="• For Mac with M1/M2/M3 chips\n• Fast (5-10s per image)\n• ~500MB download",
+                     foreground="gray").grid(row=7, column=0, sticky=tk.W, padx=20, pady=2)
+        
+        # Buttons
+        button_frame = ttk.Frame(options_window)
+        button_frame.pack(pady=20)
+        
+        def install_selected():
+            choice = install_choice.get()
+            options_window.destroy()
+            self.install_pytorch_version(choice)
+        
+        ttk.Button(button_frame, text="Install", command=install_selected, width=15).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=options_window.destroy, width=15).pack(side=tk.LEFT, padx=5)
+        
+        # Info label
+        ttk.Label(options_window, text="Note: This will uninstall existing PyTorch and install the selected version.",
+                 foreground="orange", font=('Arial', 9)).pack(pady=10)
+    
+    def install_pytorch_version(self, version):
+        """Install specific PyTorch version."""
+        import subprocess
+        import threading
+        
+        # Map version to pip command
+        commands = {
+            'cpu': [sys.executable, "-m", "pip", "install", "-r", "requirements-ai.txt"],
+            'cuda': [sys.executable, "-m", "pip", "install", "torch", "torchvision", 
+                    "--index-url", "https://download.pytorch.org/whl/cu118"],
+            'rocm': [sys.executable, "-m", "pip", "install", "torch", "torchvision",
+                    "--index-url", "https://download.pytorch.org/whl/rocm5.7"],
+            'mps': [sys.executable, "-m", "pip", "install", "torch", "torchvision"]
+        }
+        
+        version_names = {
+            'cpu': 'CPU',
+            'cuda': 'NVIDIA CUDA',
+            'rocm': 'AMD ROCm',
+            'mps': 'Apple Silicon'
+        }
+        
+        def install_thread():
+            """Run installation in background thread."""
+            try:
+                # Create progress window
+                progress_window = tk.Toplevel(self.root)
+                progress_window.title(f"Installing PyTorch ({version_names[version]})")
+                progress_window.geometry("500x250")
+                progress_window.transient(self.root)
+                progress_window.grab_set()
+                
+                ttk.Label(progress_window, text=f"Installing PyTorch for {version_names[version]}...", 
+                         font=('Arial', 12, 'bold')).pack(pady=20)
+                
+                status_label = ttk.Label(progress_window, text="Uninstalling old version...")
+                status_label.pack(pady=10)
+                
+                progress = ttk.Progressbar(progress_window, mode='indeterminate', length=400)
+                progress.pack(pady=10)
+                progress.start()
+                
+                log_text = scrolledtext.ScrolledText(progress_window, height=6, width=60)
+                log_text.pack(pady=10, padx=10)
+                
+                def update_status(msg):
+                    status_label.config(text=msg)
+                    log_text.insert(tk.END, f"{msg}\n")
+                    log_text.see(tk.END)
+                    progress_window.update()
+                
+                # Uninstall existing PyTorch
+                update_status("Uninstalling existing PyTorch...")
+                subprocess.run(
+                    [sys.executable, "-m", "pip", "uninstall", "-y", "torch", "torchvision"],
+                    capture_output=True,
+                    timeout=120
+                )
+                
+                # Install new version
+                update_status(f"Installing PyTorch ({version_names[version]})...")
+                update_status("This may take several minutes...")
+                
+                result = subprocess.run(
+                    commands[version],
+                    capture_output=True,
+                    text=True,
+                    timeout=600
+                )
+                
+                progress.stop()
+                
+                if result.returncode == 0:
+                    update_status("✓ Installation successful!")
+                    
+                    # Check what was detected
+                    try:
+                        import importlib
+                        import torch
+                        importlib.reload(torch)
+                        
+                        if torch.cuda.is_available():
+                            device_name = torch.cuda.get_device_name(0)
+                            update_status(f"✓ GPU detected: {device_name}")
+                        else:
+                            update_status("ℹ Running on CPU")
+                    except:
+                        pass
+                    
+                    messagebox.showinfo(
+                        "Installation Complete",
+                        f"PyTorch ({version_names[version]}) installed successfully!\n\n"
+                        "Please restart the application to use the new version.",
+                        parent=progress_window
+                    )
+                else:
+                    update_status("✗ Installation failed")
+                    log_text.insert(tk.END, f"\nError:\n{result.stderr}\n")
+                    messagebox.showerror(
+                        "Installation Failed",
+                        f"Failed to install PyTorch.\n\n"
+                        f"Error: {result.stderr[:200]}",
+                        parent=progress_window
+                    )
+                
+                progress_window.grab_release()
+                progress_window.destroy()
+                
+                # Refresh AI status
+                self.check_ai_availability()
+                
+            except subprocess.TimeoutExpired:
+                messagebox.showerror(
+                    "Installation Timeout",
+                    "Installation took too long and was cancelled."
+                )
+            except Exception as e:
+                messagebox.showerror(
+                    "Installation Error",
+                    f"An error occurred:\n{str(e)}"
+                )
+        
+        # Run in background
+        thread = threading.Thread(target=install_thread, daemon=True)
+        thread.start()
+    
+    def install_ai_dependencies(self):
+        """Install AI dependencies automatically."""
+        import subprocess
+        import threading
+        
+        def install_thread():
+            """Run installation in background thread."""
+            try:
+                # Create a progress window
+                progress_window = tk.Toplevel(self.root)
+                progress_window.title("Installing AI Dependencies")
+                progress_window.geometry("500x200")
+                progress_window.transient(self.root)
+                progress_window.grab_set()
+                
+                ttk.Label(progress_window, text="Installing PyTorch for AI Denoising...", 
+                         font=('Arial', 12, 'bold')).pack(pady=20)
+                
+                status_label = ttk.Label(progress_window, text="Starting installation...")
+                status_label.pack(pady=10)
+                
+                progress = ttk.Progressbar(progress_window, mode='indeterminate', length=400)
+                progress.pack(pady=10)
+                progress.start()
+                
+                log_text = scrolledtext.ScrolledText(progress_window, height=5, width=60)
+                log_text.pack(pady=10, padx=10)
+                
+                def update_status(msg):
+                    status_label.config(text=msg)
+                    log_text.insert(tk.END, f"{msg}\n")
+                    log_text.see(tk.END)
+                    progress_window.update()
+                
+                update_status("Installing PyTorch (this may take a few minutes)...")
+                
+                # Install AI dependencies
+                result = subprocess.run(
+                    [sys.executable, "-m", "pip", "install", "-r", "requirements-ai.txt"],
+                    capture_output=True,
+                    text=True,
+                    timeout=600  # 10 minute timeout
+                )
+                
+                progress.stop()
+                
+                if result.returncode == 0:
+                    update_status("✓ Installation successful!")
+                    messagebox.showinfo(
+                        "Installation Complete",
+                        "AI dependencies installed successfully!\n\n"
+                        "Please restart the application to use AI denoising.",
+                        parent=progress_window
+                    )
+                else:
+                    update_status("✗ Installation failed")
+                    log_text.insert(tk.END, f"\nError:\n{result.stderr}\n")
+                    messagebox.showerror(
+                        "Installation Failed",
+                        "Failed to install AI dependencies.\n\n"
+                        "Please try manual installation:\n"
+                        "  pip install -r requirements-ai.txt",
+                        parent=progress_window
+                    )
+                
+                progress_window.grab_release()
+                progress_window.destroy()
+                
+            except subprocess.TimeoutExpired:
+                messagebox.showerror(
+                    "Installation Timeout",
+                    "Installation took too long and was cancelled.\n\n"
+                    "Please try manual installation:\n"
+                    "  pip install -r requirements-ai.txt"
+                )
+            except Exception as e:
+                messagebox.showerror(
+                    "Installation Error",
+                    f"An error occurred during installation:\n{str(e)}\n\n"
+                    "Please try manual installation:\n"
+                    "  pip install -r requirements-ai.txt"
+                )
+        
+        # Run installation in background thread
+        thread = threading.Thread(target=install_thread, daemon=True)
+        thread.start()
+    
+    def on_ai_toggle(self):
+        """Handle AI denoiser toggle."""
+        if self.enable_ai.get():
+            try:
+                from ai_denoiser import is_ai_available, get_device
+                
+                if not is_ai_available():
+                    # Offer to install AI dependencies
+                    response = messagebox.askyesnocancel(
+                        "AI Dependencies Missing",
+                        "PyTorch is not installed.\n\n"
+                        "AI denoising requires PyTorch (~500MB download).\n\n"
+                        "Would you like to install it now?\n\n"
+                        "Yes: Install automatically (recommended)\n"
+                        "No: Show manual installation instructions\n"
+                        "Cancel: Disable AI denoising"
+                    )
+                    
+                    if response is True:
+                        # Install automatically
+                        self.install_ai_dependencies()
+                    elif response is False:
+                        # Show manual instructions
+                        messagebox.showinfo(
+                            "Manual Installation",
+                            "To install AI dependencies manually:\n\n"
+                            "1. Open Command Prompt / Terminal\n"
+                            "2. Navigate to the project folder\n"
+                            "3. Run: pip install -r requirements-ai.txt\n"
+                            "4. Restart the application\n\n"
+                            "For GPU support (NVIDIA):\n"
+                            "  pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118\n\n"
+                            "For Apple Silicon (M1/M2/M3):\n"
+                            "  pip install torch torchvision"
+                        )
+                    
+                    self.enable_ai.set(False)
+                    return
+                
+                # Show device info
+                device, device_desc = get_device()
+                
+                # Warn about CPU performance
+                if device == 'cpu':
+                    response = messagebox.askyesno(
+                        "AI Denoising on CPU",
+                        "AI denoising will run on CPU (no GPU detected).\n\n"
+                        "This will be significantly slower than classical methods.\n"
+                        "Processing may take 30-60 seconds per image.\n\n"
+                        "Continue with AI denoising?"
+                    )
+                    if not response:
+                        self.enable_ai.set(False)
+                        return
+                
+                self.log_message(f"AI Denoiser enabled: {self.ai_model.get()} on {device_desc}")
+                
+                # Optionally disable classical filters when AI is enabled
+                # Only ask if at least one classical filter is enabled
+                if (self.enable_gaussian.get() or self.enable_median.get() or self.enable_nonlocal.get()):
+                    response = messagebox.askyesnocancel(
+                        "Classical Filters",
+                        "AI denoising works best alone, but you can also combine it with classical filters.\n\n"
+                        "What would you like to do?\n\n"
+                        "• Yes: Disable classical filters (AI only - recommended)\n"
+                        "• No: Keep classical filters enabled (AI + Classical)\n"
+                        "• Cancel: Keep current settings"
+                    )
+                    
+                    if response is True:
+                        # Disable classical filters
+                        self.enable_gaussian.set(False)
+                        self.enable_median.set(False)
+                        self.enable_nonlocal.set(False)
+                        self.log_message("Classical filters disabled (AI only mode)")
+                    elif response is False:
+                        # Keep both enabled
+                        self.log_message("AI + Classical filters enabled (hybrid mode)")
+                    # If None (Cancel), do nothing
+                    
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to initialize AI denoiser:\n{str(e)}")
+                self.enable_ai.set(False)
+        else:
+            self.log_message("AI Denoiser disabled")
+    
+    def show_log_window(self):
+        """Show processing log in a separate window."""
+        log_window = tk.Toplevel(self.root)
+        log_window.title("Processing Log")
+        log_window.geometry("800x600")
+        
+        # Log text
+        log_display = scrolledtext.ScrolledText(log_window, wrap=tk.WORD, font=('Consolas', 9))
+        log_display.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Copy current log content
+        current_log = self.log_text.get(1.0, tk.END)
+        log_display.insert(1.0, current_log)
+        log_display.configure(state='disabled')
+        
+        # Auto-update log (refresh every second while window is open)
+        def update_log():
+            if log_window.winfo_exists():
+                try:
+                    log_display.configure(state='normal')
+                    log_display.delete(1.0, tk.END)
+                    current_log = self.log_text.get(1.0, tk.END)
+                    log_display.insert(1.0, current_log)
+                    log_display.configure(state='disabled')
+                    log_display.see(tk.END)
+                    log_window.after(1000, update_log)
+                except:
+                    pass
+        
+        update_log()
+        
+        # Buttons
+        button_frame = ttk.Frame(log_window)
+        button_frame.pack(fill=tk.X, padx=10, pady=10)
+        
+        ttk.Button(button_frame, text="📋 Copy to Clipboard", 
+                  command=lambda: self.copy_log_to_clipboard(log_display)).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="💾 Save to File", 
+                  command=lambda: self.save_log_to_file(log_display)).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Close", 
+                  command=log_window.destroy).pack(side=tk.RIGHT, padx=5)
+    
+    def copy_log_to_clipboard(self, log_widget):
+        """Copy log content to clipboard."""
+        log_content = log_widget.get(1.0, tk.END)
+        self.root.clipboard_clear()
+        self.root.clipboard_append(log_content)
+        messagebox.showinfo("Copied", "Log copied to clipboard!")
+    
+    def save_log_to_file(self, log_widget):
+        """Save log content to file."""
+        from datetime import datetime
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+            initialfile=f"denoiser_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        )
+        if filename:
+            try:
+                with open(filename, 'w', encoding='utf-8') as f:
+                    f.write(log_widget.get(1.0, tk.END))
+                messagebox.showinfo("Saved", f"Log saved to:\n{filename}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save log:\n{str(e)}")
+    
+    def clear_log(self):
+        """Clear the processing log."""
+        if messagebox.askyesno("Clear Log", "Clear all log messages?"):
+            self.log_text.configure(state='normal')
+            self.log_text.delete(1.0, tk.END)
+            self.log_text.configure(state='disabled')
+    
     def log_message(self, message):
         """Add a message to the log."""
         self.log_text.configure(state='normal')
@@ -1029,8 +1567,14 @@ class DenoiserGUI:
         config = self.create_config()
         base_name = os.path.splitext(os.path.basename(original_path))[0]
         
-        # Check for different filter outputs
+        # Check for different filter outputs (classical and AI)
         filter_suffixes = []
+        
+        # Add AI suffix if enabled
+        if self.enable_ai.get():
+            filter_suffixes.append('nonlocal_ai')  # AI uses nonlocal as base name
+        
+        # Add classical filter suffixes
         if self.enable_gaussian.get():
             filter_suffixes.append('gaussian')
         if self.enable_median.get():

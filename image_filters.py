@@ -252,3 +252,45 @@ def boost_saturation(image, amount=1.3):
         return np.clip((rgb_boosted * 65535 + 0.5), 0, 65535).astype(np.uint16)
     else:
         return rgb_boosted
+
+
+def boost_brightness(image, amount=1.1):
+    """Boost image brightness/luminance.
+    
+    Args:
+        image: Input image array (RGB or grayscale)
+        amount: Brightness multiplier (1.0 = no change, >1.0 = brighter, <1.0 = darker)
+    
+    Returns:
+        Image with adjusted brightness
+    """
+    # Store original dtype
+    original_dtype = image.dtype
+    
+    # Convert to float [0, 1]
+    if image.dtype == np.uint8:
+        img_float = image.astype(np.float64) / 255.0
+    elif image.dtype == np.uint16:
+        img_float = image.astype(np.float64) / 65535.0
+    else:
+        img_float = image.astype(np.float64)
+        if img_float.max() > 1.0:
+            img_float = img_float / img_float.max()
+    
+    if image.ndim == 3:
+        # Color image: adjust brightness in HSV space (V channel)
+        hsv = color.rgb2hsv(img_float)
+        hsv[:, :, 2] = np.clip(hsv[:, :, 2] * amount, 0, 1)
+        rgb_boosted = color.hsv2rgb(hsv)
+        rgb_boosted = np.clip(rgb_boosted, 0, 1)
+    else:
+        # Grayscale: directly multiply
+        rgb_boosted = np.clip(img_float * amount, 0, 1)
+    
+    # Convert back to original dtype
+    if original_dtype == np.uint8:
+        return np.clip((rgb_boosted * 255 + 0.5), 0, 255).astype(np.uint8)
+    elif original_dtype == np.uint16:
+        return np.clip((rgb_boosted * 65535 + 0.5), 0, 65535).astype(np.uint16)
+    else:
+        return rgb_boosted
