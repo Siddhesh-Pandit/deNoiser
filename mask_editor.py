@@ -5,9 +5,10 @@
 
 """Mask editor window for selective denoising."""
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 import numpy as np
 from PIL import Image, ImageDraw, ImageTk
+from scipy import ndimage
 
 
 class MaskEditorWindow:
@@ -106,6 +107,9 @@ class MaskEditorWindow:
         self.size_var.trace_add('write', lambda *args: self.update_brush_size())
         
         ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
+        
+        # Auto-select button
+        ttk.Button(toolbar, text="🎯 Auto-Select Gradients", command=self.auto_select_gradients, width=20).pack(side=tk.LEFT, padx=2)
         
         # Clear button
         ttk.Button(toolbar, text="🗑️ Clear All", command=self.clear_mask, width=12).pack(side=tk.LEFT, padx=2)
@@ -206,6 +210,82 @@ class MaskEditorWindow:
         except (tk.TclError, ValueError):
             # Ignore invalid values (e.g., empty string during editing)
             pass
+    
+    def auto_select_gradients(self):
+        """Automatically select areas with high gradients (edges/details)."""
+        # Ask user for sensitivity
+        sensitivity = simpledialog.askfloat(
+            "Auto-Select Gradients",
+            "Enter gradient sensitivity (0.1-1.0):\n\n"
+            "Lower values = more areas selected\n"
+            "Higher values = only strong edges\n\n"
+            "Recommended: 0.3-0.5",
+            initialvalue=0.4,
+            minvalue=0.1,
+            maxvalue=1.0
+        )
+        
+        if sensitivity is None:
+            return
+        
+        self.status_label.config(text="Detecting gradients...")
+        self.window.update()
+        
+        try:
+            # Convert image to grayscale numpy array
+            img_gray = np.array(self.display_img.convert('L')).astype(float)
+            
+            # Calculate gradients using Sobel filters
+            gradient_x = ndimage.sobel(img_gray, axis=1)
+            gradient_y = ndimage.sobel(img_gray, axis=0)
+            
+            # Calculate gradient magnitude
+            gradient_magnitude = np.sqrt(gradient_x**2 + gradient_y**2)
+            
+            # Normalize to 0-1
+            if gradient_magnitude.max() > 0:
+                gradient_magnitude = gradient_magnitude / gradient_magnitude.max()
+            
+            # Threshold based on sensitivity
+            threshold = sensitivity
+            gradient_mask = (gradient_magnitude > threshold).astype(np.uint8) * 255
+            
+            # Apply morphological operations to clean up the mask
+            # Dilate to connect nearby edges
+            gradient_mask = ndimage.binary_dilation(gradient_mask, iterations=2).astype(np.uint8) * 255
+            
+            # Convert to PIL Image
+            gradient_mask_img = Image.fromarray(gradient_mask, mode='L')
+            
+            # Merge with existing mask (union)
+            mask_array = np.array(self.mask)
+            gradient_array = np.array(gradient_mask_img)
+            merged_mask = np.maximum(mask_array, gradient_array)
+            
+            # Update mask
+            self.mask = Image.fromarray(merged_mask, mode='L')
+            self.mask_draw = ImageDraw.Draw(self.mask)
+            
+            # Update display
+            self.update_display()
+            
+            # Show result
+            selected_pixels = np.sum(merged_mask > 0)
+            total_pixels = merged_mask.size
+            percentage = (selected_pixels / total_pixels) * 100
+            
+            messagebox.showinfo(
+                "Auto-Select Complete",
+                f"Gradient areas detected and added to mask.\n\n"
+                f"Selected: {percentage:.1f}% of image\n"
+                f"({selected_pixels:,} pixels)"
+            )
+            
+            self.status_label.config(text="Tool: Brush")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to detect gradients:\n{str(e)}")
+            self.status_label.config(text="Tool: Brush")
     
     def clear_mask(self):
         """Clear entire mask."""

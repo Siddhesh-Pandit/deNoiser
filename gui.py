@@ -352,6 +352,9 @@ class DenoiserGUI:
         # Set application icon if available
         self.set_app_icon()
         
+        # Set up proper window close handler
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        
         # Variables
         self.input_path = tk.StringVar()
         self.input_files = []  # Store selected files
@@ -1126,6 +1129,19 @@ class DenoiserGUI:
             # Don't clear input_files - keep selection for successive runs
             self.root.after(0, lambda: self.process_btn.config(state='normal', text="Start Processing"))
     
+    def on_closing(self):
+        """Handle window close event."""
+        if self.processing:
+            response = messagebox.askyesno(
+                "Processing in Progress",
+                "Image processing is still running.\n\nAre you sure you want to exit?"
+            )
+            if not response:
+                return
+        
+        # Destroy the window and exit the application
+        self.root.destroy()
+        sys.exit(0)
 
 
 def main():
