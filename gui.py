@@ -427,20 +427,6 @@ class DenoiserGUI:
         create_tooltip(files_btn, "Select one or more specific image files")
         row += 1
         
-        # Edit Mask button (for single file selection)
-        mask_frame = ttk.Frame(main_frame)
-        mask_frame.grid(row=row, column=1, sticky=tk.W, pady=5)
-        
-        self.edit_mask_btn = ttk.Button(mask_frame, text="🎨 Edit Mask (Selective Denoising)", 
-                                        command=self.open_mask_editor, width=30)
-        self.edit_mask_btn.pack(side=tk.LEFT)
-        self.edit_mask_btn.config(state='disabled')
-        create_tooltip(self.edit_mask_btn, "Paint areas to denoise.\nOnly masked areas will be processed.\n(Available for single file selection)")
-        
-        self.mask_status = ttk.Label(mask_frame, text="", foreground="green")
-        self.mask_status.pack(side=tk.LEFT, padx=10)
-        row += 1
-        
         # Output folder
         output_label = ttk.Label(main_frame, text="Output Folder:")
         output_label.grid(row=row, column=0, sticky=tk.W, pady=5)
@@ -454,7 +440,35 @@ class DenoiserGUI:
         ttk.Separator(main_frame, orient='horizontal').grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=10)
         row += 1
         
-        # Output settings
+        # Quick Presets section (moved before Output Settings for better workflow)
+        presets_frame = ttk.LabelFrame(main_frame, text="Quick Presets", padding="5")
+        presets_frame.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        
+        ttk.Label(presets_frame, text="Optimize for:").grid(row=0, column=0, sticky=tk.W, padx=5)
+        
+        preset_photos = ttk.Button(presets_frame, text="📷 Photos", command=self.preset_photos, width=14)
+        preset_photos.grid(row=0, column=1, padx=5)
+        create_tooltip(preset_photos, "Best for: Portraits, landscapes, general photos\n• Non-local Means only\n• Color preservation ON\n• Sharpening ON")
+        
+        preset_docs = ttk.Button(presets_frame, text="📄 Documents", command=self.preset_documents, width=15)
+        preset_docs.grid(row=0, column=2, padx=5)
+        create_tooltip(preset_docs, "Best for: Scanned documents, text\n• Median filter only\n• Color preservation OFF\n• Sharpening ON")
+        
+        preset_lowlight = ttk.Button(presets_frame, text="🌙 Low-Light", command=self.preset_lowlight, width=14)
+        preset_lowlight.grid(row=0, column=3, padx=5)
+        create_tooltip(preset_lowlight, "Best for: Night photos, high ISO\n• Non-local Means (aggressive)\n• Color preservation ON\n• Sharpening ON")
+        
+        preset_compare = ttk.Button(presets_frame, text="🔍 Compare All", command=self.preset_compare, width=16)
+        preset_compare.grid(row=0, column=4, padx=5)
+        create_tooltip(preset_compare, "Compare all filters\n• All filters enabled\n• See which works best")
+        
+        row += 1
+        
+        # Separator
+        ttk.Separator(main_frame, orient='horizontal').grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=10)
+        row += 1
+        
+        # Output settings (moved after Presets)
         output_frame = ttk.LabelFrame(main_frame, text="Output Settings", padding="5")
         output_frame.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
         
@@ -504,33 +518,17 @@ class DenoiserGUI:
         create_tooltip(saturation_label, "Saturation boost strength:\n1.0: No change\n1.3: Moderate (default)\n1.5-2.0: Strong")
         ttk.Spinbox(output_frame, from_=1.0, to=2.0, increment=0.1, textvariable=self.saturation_amount, width=10).grid(row=3, column=3, sticky=tk.W, padx=5)
         
-        row += 1
+        # Selective denoising (Edit Mask)
+        ttk.Separator(output_frame, orient='horizontal').grid(row=4, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=10)
         
-        # Separator
-        ttk.Separator(main_frame, orient='horizontal').grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=10)
-        row += 1
+        self.edit_mask_btn = ttk.Button(output_frame, text="🎨 Edit Mask (Selective Denoising)", 
+                                        command=self.open_mask_editor, width=35)
+        self.edit_mask_btn.grid(row=5, column=0, columnspan=2, sticky=tk.W, padx=5, pady=5)
+        self.edit_mask_btn.config(state='disabled')
+        create_tooltip(self.edit_mask_btn, "Paint areas to denoise.\nOnly masked areas will be processed.\n(Available for single file selection)")
         
-        # Quick Presets section
-        presets_frame = ttk.LabelFrame(main_frame, text="Quick Presets", padding="5")
-        presets_frame.grid(row=row, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
-        
-        ttk.Label(presets_frame, text="Optimize for:").grid(row=0, column=0, sticky=tk.W, padx=5)
-        
-        preset_photos = ttk.Button(presets_frame, text="📷 Photos", command=self.preset_photos, width=14)
-        preset_photos.grid(row=0, column=1, padx=5)
-        create_tooltip(preset_photos, "Best for: Portraits, landscapes, general photos\n• Non-local Means only\n• Color preservation ON\n• Sharpening ON")
-        
-        preset_docs = ttk.Button(presets_frame, text="📄 Documents", command=self.preset_documents, width=15)
-        preset_docs.grid(row=0, column=2, padx=5)
-        create_tooltip(preset_docs, "Best for: Scanned documents, text\n• Median filter only\n• Color preservation OFF\n• Sharpening ON")
-        
-        preset_lowlight = ttk.Button(presets_frame, text="🌙 Low-Light", command=self.preset_lowlight, width=14)
-        preset_lowlight.grid(row=0, column=3, padx=5)
-        create_tooltip(preset_lowlight, "Best for: Night photos, high ISO\n• Non-local Means (aggressive)\n• Color preservation ON\n• Sharpening ON")
-        
-        preset_compare = ttk.Button(presets_frame, text="🔍 Compare All", command=self.preset_compare, width=16)
-        preset_compare.grid(row=0, column=4, padx=5)
-        create_tooltip(preset_compare, "Compare all filters\n• All filters enabled\n• See which works best")
+        self.mask_status = ttk.Label(output_frame, text="", foreground="green", font=('Arial', 9, 'bold'))
+        self.mask_status.grid(row=5, column=2, columnspan=2, sticky=tk.W, padx=5)
         
         row += 1
         

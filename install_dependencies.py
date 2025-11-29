@@ -65,7 +65,7 @@ def install_dependencies():
         print(f"Error: {e}")
         print()
         print("Try installing manually:")
-        print("  pip install numpy scikit-image scipy")
+        print("  pip install numpy scikit-image scipy pillow")
         print()
         return False
     
@@ -119,7 +119,6 @@ def verify_installation():
         'numpy': 'NumPy',
         'skimage': 'scikit-image',
         'scipy': 'SciPy',
-        'pywt': 'PyWavelets',
         'PIL': 'Pillow'
     }
     

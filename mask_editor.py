@@ -31,9 +31,16 @@ class MaskEditorWindow:
         # Load image
         self.original_img = Image.open(image_path)
         
+        # Zoom state
+        self.zoom_level = 1.0
+        self.min_zoom = 0.25
+        self.max_zoom = 4.0
+        
         # Scale image to fit window
         self.canvas_width = 1000
         self.canvas_height = 600
+        self.max_width = self.canvas_width
+        self.max_height = self.canvas_height
         self.scale_image()
         
         # Create mask (white = denoise, black = skip)
@@ -95,6 +102,8 @@ class MaskEditorWindow:
         size_spinbox = ttk.Spinbox(toolbar, from_=5, to=100, textvariable=self.size_var, 
                                    width=8, command=self.update_brush_size)
         size_spinbox.pack(side=tk.LEFT, padx=2)
+        # Bind to capture manual input changes
+        self.size_var.trace_add('write', lambda *args: self.update_brush_size())
         
         ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
         
@@ -111,13 +120,43 @@ class MaskEditorWindow:
         canvas_frame = ttk.Frame(main_frame)
         canvas_frame.pack(fill=tk.BOTH, expand=True)
         
+        # Create scrollbars
+        h_scrollbar = ttk.Scrollbar(canvas_frame, orient=tk.HORIZONTAL)
+        v_scrollbar = ttk.Scrollbar(canvas_frame, orient=tk.VERTICAL)
+        
         # Canvas with scrollbars
         self.canvas = tk.Canvas(canvas_frame, 
                                width=self.canvas_width,
                                height=self.canvas_height,
                                bg='gray',
-                               cursor='crosshair')
-        self.canvas.pack()
+                               cursor='crosshair',
+                               xscrollcommand=h_scrollbar.set,
+                               yscrollcommand=v_scrollbar.set)
+        
+        # Configure scrollbars
+        h_scrollbar.config(command=self.canvas.xview)
+        v_scrollbar.config(command=self.canvas.yview)
+        
+        # Grid layout for canvas and scrollbars
+        self.canvas.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+        h_scrollbar.grid(row=1, column=0, sticky=(tk.E, tk.W))
+        v_scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        
+        canvas_frame.rowconfigure(0, weight=1)
+        canvas_frame.columnconfigure(0, weight=1)
+        
+        # Set scroll region
+        self.canvas.config(scrollregion=(0, 0, self.display_width, self.display_height))
+        
+        # Zoom controls
+        zoom_frame = ttk.Frame(main_frame)
+        zoom_frame.pack(pady=5)
+        
+        ttk.Button(zoom_frame, text="🔍−", command=self.zoom_out, width=5).pack(side=tk.LEFT, padx=5)
+        self.zoom_label = ttk.Label(zoom_frame, text="100%", font=('Arial', 10))
+        self.zoom_label.pack(side=tk.LEFT, padx=10)
+        ttk.Button(zoom_frame, text="🔍+", command=self.zoom_in, width=5).pack(side=tk.LEFT, padx=5)
+        ttk.Button(zoom_frame, text="Reset", command=self.zoom_reset, width=8).pack(side=tk.LEFT, padx=5)
         
         # Info label
         info_frame = ttk.Frame(main_frame)
@@ -133,6 +172,9 @@ class MaskEditorWindow:
         self.canvas.bind('<Button-1>', self.on_mouse_down)
         self.canvas.bind('<B1-Motion>', self.on_mouse_drag)
         self.canvas.bind('<ButtonRelease-1>', self.on_mouse_up)
+        self.canvas.bind('<MouseWheel>', self.on_mousewheel)  # Windows/Mac
+        self.canvas.bind('<Button-4>', self.on_mousewheel)    # Linux scroll up
+        self.canvas.bind('<Button-5>', self.on_mousewheel)    # Linux scroll down
         
         # Bind keyboard shortcuts
         self.window.bind('b', lambda e: self.select_brush())
@@ -157,7 +199,13 @@ class MaskEditorWindow:
     
     def update_brush_size(self):
         """Update brush size from spinbox."""
-        self.brush_size = self.size_var.get()
+        try:
+            value = self.size_var.get()
+            if value and 5 <= value <= 100:
+                self.brush_size = value
+        except (tk.TclError, ValueError):
+            # Ignore invalid values (e.g., empty string during editing)
+            pass
     
     def clear_mask(self):
         """Clear entire mask."""
@@ -167,21 +215,30 @@ class MaskEditorWindow:
             self.mask_draw = ImageDraw.Draw(self.mask)
             self.update_display()
     
+    def canvas_to_image_coords(self, canvas_x, canvas_y):
+        """Convert canvas coordinates to image coordinates accounting for scroll."""
+        # Get canvas scroll position
+        x_scroll = self.canvas.canvasx(canvas_x)
+        y_scroll = self.canvas.canvasy(canvas_y)
+        return x_scroll, y_scroll
+    
     def on_mouse_down(self, event):
         """Handle mouse button press."""
         self.drawing = True
-        self.last_x = event.x
-        self.last_y = event.y
-        self.draw_at(event.x, event.y)
+        x, y = self.canvas_to_image_coords(event.x, event.y)
+        self.last_x = x
+        self.last_y = y
+        self.draw_at(x, y)
     
     def on_mouse_drag(self, event):
         """Handle mouse drag."""
         if self.drawing:
+            x, y = self.canvas_to_image_coords(event.x, event.y)
             # Draw line from last position to current
             if self.last_x is not None and self.last_y is not None:
-                self.draw_line(self.last_x, self.last_y, event.x, event.y)
-            self.last_x = event.x
-            self.last_y = event.y
+                self.draw_line(self.last_x, self.last_y, x, y)
+            self.last_x = x
+            self.last_y = y
     
     def on_mouse_up(self, event):
         """Handle mouse button release."""
@@ -260,6 +317,92 @@ class MaskEditorWindow:
         # Update canvas
         self.canvas.delete('all')
         self.canvas.create_image(0, 0, anchor=tk.NW, image=self.photo)
+    
+    def zoom_in(self):
+        """Zoom in by 25%."""
+        new_zoom = min(self.zoom_level * 1.25, self.max_zoom)
+        if new_zoom != self.zoom_level:
+            self.zoom_level = new_zoom
+            self.apply_zoom()
+    
+    def zoom_out(self):
+        """Zoom out by 25%."""
+        new_zoom = max(self.zoom_level / 1.25, self.min_zoom)
+        if new_zoom != self.zoom_level:
+            self.zoom_level = new_zoom
+            self.apply_zoom()
+    
+    def zoom_reset(self):
+        """Reset zoom to 100%."""
+        if self.zoom_level != 1.0:
+            self.zoom_level = 1.0
+            self.apply_zoom()
+    
+    def on_mousewheel(self, event):
+        """Handle mouse wheel zoom."""
+        # Windows/Mac use event.delta, Linux uses event.num
+        if hasattr(event, 'delta'):
+            delta = event.delta
+        elif event.num == 4:
+            delta = 120  # Scroll up
+        elif event.num == 5:
+            delta = -120  # Scroll down
+        else:
+            return
+        
+        if delta > 0:
+            self.zoom_in()
+        else:
+            self.zoom_out()
+    
+    def apply_zoom(self):
+        """Apply current zoom level to images and mask."""
+        # Calculate new dimensions
+        width, height = self.original_img.size
+        scale_w = self.max_width / width
+        scale_h = self.max_height / height
+        base_scale = min(scale_w, scale_h, 1.0)
+        
+        final_scale = base_scale * self.zoom_level
+        
+        new_width = int(width * final_scale)
+        new_height = int(height * final_scale)
+        
+        # Store old dimensions for mask scaling
+        old_width = self.display_width
+        old_height = self.display_height
+        
+        # Update display dimensions
+        self.display_width = new_width
+        self.display_height = new_height
+        self.scale_factor = final_scale
+        
+        # Resize display image
+        self.display_img = self.original_img.resize(
+            (self.display_width, self.display_height),
+            Image.Resampling.LANCZOS
+        )
+        
+        # Scale mask to new size
+        if old_width > 0 and old_height > 0:
+            self.mask = self.mask.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        else:
+            self.mask = Image.new('L', (new_width, new_height), 0)
+        self.mask_draw = ImageDraw.Draw(self.mask)
+        
+        # Update scroll region
+        self.canvas.config(scrollregion=(0, 0, self.display_width, self.display_height))
+        
+        # Update zoom label
+        self.zoom_label.config(text=f"{int(self.zoom_level * 100)}%")
+        
+        # Update display
+        self.update_display()
+        
+        # Center the view when zooming in
+        if self.zoom_level > 1.0:
+            self.canvas.xview_moveto(0.25)
+            self.canvas.yview_moveto(0.25)
     
     def apply_mask(self):
         """Apply mask and close window."""
