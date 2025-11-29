@@ -357,6 +357,9 @@ class DenoiserGUI:
         self.input_files = []  # Store selected files
         self.output_path = tk.StringVar()
         self.output_format = tk.StringVar(value="png")
+        
+        # Load saved output folder
+        self.load_saved_output_folder()
         self.jpeg_quality = tk.IntVar(value=95)
         self.preserve_color = tk.BooleanVar(value=True)
         self.apply_sharpening = tk.BooleanVar(value=False)
@@ -679,6 +682,45 @@ class DenoiserGUI:
             # Silently fail if icon can't be loaded
             pass
     
+    def load_saved_output_folder(self):
+        """Load previously used output folder from config."""
+        config_file = '.gui_settings.ini'
+        if os.path.exists(config_file):
+            try:
+                import configparser
+                config = configparser.ConfigParser()
+                config.read(config_file)
+                if 'GUI' in config and 'output_folder' in config['GUI']:
+                    saved_folder = config['GUI']['output_folder']
+                    if os.path.exists(saved_folder):
+                        self.output_path.set(saved_folder)
+            except Exception:
+                pass  # Silently fail if can't load
+    
+    def save_output_folder(self):
+        """Save current output folder to config."""
+        config_file = '.gui_settings.ini'
+        try:
+            import configparser
+            config = configparser.ConfigParser()
+            
+            # Load existing config if it exists
+            if os.path.exists(config_file):
+                config.read(config_file)
+            
+            # Ensure GUI section exists
+            if 'GUI' not in config:
+                config['GUI'] = {}
+            
+            # Save output folder
+            config['GUI']['output_folder'] = self.output_path.get()
+            
+            # Write to file
+            with open(config_file, 'w') as f:
+                config.write(f)
+        except Exception:
+            pass  # Silently fail if can't save
+    
     def setup_logging(self):
         """Setup logging to GUI text widget."""
         logger = logging.getLogger()
@@ -733,6 +775,7 @@ class DenoiserGUI:
         folder = filedialog.askdirectory(title="Select Output Folder")
         if folder:
             self.output_path.set(folder)
+            self.save_output_folder()  # Save for next time
     
     def open_mask_editor(self):
         """Open mask editor window."""
