@@ -39,7 +39,8 @@ Get Image Denoiser running on Windows in 5 minutes or less.
 3. Wait for "Installation complete!"
 
 #### Step 4: Run It (1 minute)
-1. Double-click `run_gui.bat`
+1. Double-click `run_gui.bat` (no console window)
+   - Or use `run_gui_debug.bat` to see console output for debugging
 2. Start denoising!
 
 ---
@@ -103,7 +104,8 @@ After installation, you'll have:
 
 ```
 📁 ImageDenoiser/
-  ├── 🚀 run_gui.bat          ← Double-click this to start
+  ├── 🚀 run_gui.bat          ← Double-click this to start (no console)
+  ├── 🔧 run_gui_debug.bat    ← Use this to see console output
   ├── ⚙️ install_dependencies.bat  ← Run this first (if from source)
   ├── 📝 config.ini           ← Settings file
   ├── 🐍 gui.py               ← Main program

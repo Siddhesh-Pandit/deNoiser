@@ -661,6 +661,16 @@ class DenoiserGUI:
     
     def set_app_icon(self):
         """Set application icon if available."""
+        # Windows-specific: Set taskbar icon FIRST (before setting window icon)
+        if sys.platform == 'win32':
+            try:
+                import ctypes
+                # Tell Windows this is a separate app (not Python)
+                myappid = 'imagedenoiser.gui.1.0'  # Arbitrary string
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+            except Exception:
+                pass  # Not critical if this fails
+        
         try:
             # Try to load icon file
             if os.path.exists('icon.ico'):
@@ -669,16 +679,6 @@ class DenoiserGUI:
                 # For PNG, convert to PhotoImage (works on all platforms)
                 icon_image = tk.PhotoImage(file='icon.png')
                 self.root.iconphoto(True, icon_image)
-            
-            # Windows-specific: Set taskbar icon
-            if sys.platform == 'win32':
-                try:
-                    import ctypes
-                    # Tell Windows this is a separate app (not Python)
-                    myappid = 'imagedenoiser.gui.1.0'  # Arbitrary string
-                    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
-                except Exception:
-                    pass  # Not critical if this fails
         except Exception as e:
             # Silently fail if icon can't be loaded
             pass

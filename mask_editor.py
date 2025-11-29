@@ -49,13 +49,20 @@ class MaskEditorWindow:
         self.mask_draw = ImageDraw.Draw(self.mask)
         
         # Tool state
-        self.current_tool = 'brush'  # 'brush' or 'eraser'
+        self.current_tool = 'brush'  # 'brush', 'eraser', or 'magic_wand'
         self.brush_size = 20
+        self.magic_wand_tolerance = 30  # Color tolerance for magic wand (0-255)
         self.drawing = False
         self.last_x = None
         self.last_y = None
         
+        # Undo/Redo state
+        self.undo_stack = []
+        self.redo_stack = []
+        self.max_undo_levels = 20  # Limit to prevent memory issues
+        
         self.create_widgets()
+        self.save_state()  # Save initial empty state
         self.update_display()
     
     def scale_image(self):
@@ -95,6 +102,9 @@ class MaskEditorWindow:
         self.eraser_btn = ttk.Button(toolbar, text="🧹 Eraser", command=self.select_eraser, width=12)
         self.eraser_btn.pack(side=tk.LEFT, padx=2)
         
+        self.magic_wand_btn = ttk.Button(toolbar, text="🪄 Magic Wand", command=self.select_magic_wand, width=15)
+        self.magic_wand_btn.pack(side=tk.LEFT, padx=2)
+        
         ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
         
         # Brush size
@@ -105,6 +115,25 @@ class MaskEditorWindow:
         size_spinbox.pack(side=tk.LEFT, padx=2)
         # Bind to capture manual input changes
         self.size_var.trace_add('write', lambda *args: self.update_brush_size())
+        
+        # Magic wand tolerance
+        ttk.Label(toolbar, text="Tolerance:").pack(side=tk.LEFT, padx=(10, 5))
+        self.tolerance_var = tk.IntVar(value=self.magic_wand_tolerance)
+        tolerance_spinbox = ttk.Spinbox(toolbar, from_=5, to=100, textvariable=self.tolerance_var, 
+                                       width=8, command=self.update_tolerance)
+        tolerance_spinbox.pack(side=tk.LEFT, padx=2)
+        self.tolerance_var.trace_add('write', lambda *args: self.update_tolerance())
+        
+        ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
+        
+        # Undo/Redo buttons
+        self.undo_btn = ttk.Button(toolbar, text="↶ Undo", command=self.undo, width=10)
+        self.undo_btn.pack(side=tk.LEFT, padx=2)
+        self.undo_btn.state(['disabled'])
+        
+        self.redo_btn = ttk.Button(toolbar, text="↷ Redo", command=self.redo, width=10)
+        self.redo_btn.pack(side=tk.LEFT, padx=2)
+        self.redo_btn.state(['disabled'])
         
         ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
         
@@ -183,13 +212,21 @@ class MaskEditorWindow:
         # Bind keyboard shortcuts
         self.window.bind('b', lambda e: self.select_brush())
         self.window.bind('e', lambda e: self.select_eraser())
+        self.window.bind('w', lambda e: self.select_magic_wand())
         self.window.bind('c', lambda e: self.clear_mask())
+        
+        # Undo/Redo shortcuts (Ctrl+Z / Ctrl+Y)
+        self.window.bind('<Control-z>', lambda e: self.undo())
+        self.window.bind('<Control-y>', lambda e: self.redo())
+        # Also support Ctrl+Shift+Z for redo (common alternative)
+        self.window.bind('<Control-Shift-Z>', lambda e: self.redo())
     
     def select_brush(self):
         """Select brush tool."""
         self.current_tool = 'brush'
         self.brush_btn.state(['pressed'])
         self.eraser_btn.state(['!pressed'])
+        self.magic_wand_btn.state(['!pressed'])
         self.status_label.config(text="Tool: Brush")
         self.canvas.config(cursor='crosshair')
     
@@ -198,8 +235,18 @@ class MaskEditorWindow:
         self.current_tool = 'eraser'
         self.eraser_btn.state(['pressed'])
         self.brush_btn.state(['!pressed'])
+        self.magic_wand_btn.state(['!pressed'])
         self.status_label.config(text="Tool: Eraser")
         self.canvas.config(cursor='circle')
+    
+    def select_magic_wand(self):
+        """Select magic wand tool."""
+        self.current_tool = 'magic_wand'
+        self.magic_wand_btn.state(['pressed'])
+        self.brush_btn.state(['!pressed'])
+        self.eraser_btn.state(['!pressed'])
+        self.status_label.config(text="Tool: Magic Wand (click to select similar areas)")
+        self.canvas.config(cursor='target')
     
     def update_brush_size(self):
         """Update brush size from spinbox."""
@@ -210,6 +257,205 @@ class MaskEditorWindow:
         except (tk.TclError, ValueError):
             # Ignore invalid values (e.g., empty string during editing)
             pass
+    
+    def update_tolerance(self):
+        """Update magic wand tolerance from spinbox."""
+        try:
+            value = self.tolerance_var.get()
+            if value and 5 <= value <= 100:
+                self.magic_wand_tolerance = value
+        except (tk.TclError, ValueError):
+            # Ignore invalid values (e.g., empty string during editing)
+            pass
+    
+    def save_state(self):
+        """Save current mask state to undo stack."""
+        # Convert mask to numpy array and save a copy
+        mask_state = np.array(self.mask).copy()
+        self.undo_stack.append(mask_state)
+        
+        # Limit undo stack size
+        if len(self.undo_stack) > self.max_undo_levels:
+            self.undo_stack.pop(0)
+        
+        # Clear redo stack when new action is performed
+        self.redo_stack.clear()
+        
+        # Update button states
+        self.update_undo_redo_buttons()
+    
+    def undo(self):
+        """Undo last action."""
+        if len(self.undo_stack) <= 1:  # Keep at least one state
+            return
+        
+        # Save current state to redo stack
+        current_state = np.array(self.mask).copy()
+        self.redo_stack.append(current_state)
+        
+        # Restore previous state
+        self.undo_stack.pop()
+        previous_state = self.undo_stack[-1]
+        
+        self.mask = Image.fromarray(previous_state, mode='L')
+        self.mask_draw = ImageDraw.Draw(self.mask)
+        
+        self.update_display()
+        self.update_undo_redo_buttons()
+        self.status_label.config(text="Undo")
+    
+    def redo(self):
+        """Redo last undone action."""
+        if not self.redo_stack:
+            return
+        
+        # Get state from redo stack
+        redo_state = self.redo_stack.pop()
+        
+        # Save current state to undo stack
+        current_state = np.array(self.mask).copy()
+        self.undo_stack.append(current_state)
+        
+        # Restore redo state
+        self.mask = Image.fromarray(redo_state, mode='L')
+        self.mask_draw = ImageDraw.Draw(self.mask)
+        
+        self.update_display()
+        self.update_undo_redo_buttons()
+        self.status_label.config(text="Redo")
+    
+    def update_undo_redo_buttons(self):
+        """Update undo/redo button states."""
+        # Enable/disable undo button
+        if len(self.undo_stack) > 1:
+            self.undo_btn.state(['!disabled'])
+        else:
+            self.undo_btn.state(['disabled'])
+        
+        # Enable/disable redo button
+        if self.redo_stack:
+            self.redo_btn.state(['!disabled'])
+        else:
+            self.redo_btn.state(['disabled'])
+    
+    def feather_mask(self, mask, feather_radius=3):
+        """Apply feathering (soft edges) to a mask.
+        
+        Args:
+            mask: Binary or grayscale mask (numpy array)
+            feather_radius: Radius of feathering in pixels
+            
+        Returns:
+            Feathered mask with smooth edges
+        """
+        from scipy.ndimage import distance_transform_edt, gaussian_filter
+        
+        # Convert to binary
+        binary_mask = (mask > 127).astype(np.uint8)
+        
+        # Calculate distance from edges
+        # For pixels inside the mask, calculate distance to nearest edge
+        distance_inside = distance_transform_edt(binary_mask)
+        
+        # Create smooth falloff at edges
+        # Pixels within feather_radius of edge get gradual transparency
+        feathered = np.clip(distance_inside / feather_radius, 0, 1)
+        
+        # Apply slight gaussian blur for even smoother transition
+        feathered = gaussian_filter(feathered, sigma=0.5)
+        
+        # Convert back to 0-255 range
+        feathered_mask = (feathered * 255).astype(np.uint8)
+        
+        return feathered_mask
+    
+    def magic_wand_select(self, x, y):
+        """Select connected region using flood fill based on color similarity."""
+        # Check bounds
+        if x < 0 or x >= self.display_width or y < 0 or y >= self.display_height:
+            return
+        
+        self.status_label.config(text="Selecting region...")
+        self.window.update()
+        
+        try:
+            # Convert image to numpy array
+            img_array = np.array(self.display_img)
+            
+            # Get the seed color
+            if len(img_array.shape) == 3:
+                seed_color = img_array[y, x].astype(float)
+            else:
+                seed_color = float(img_array[y, x])
+            
+            # Create a mask for the flood fill
+            h, w = img_array.shape[:2]
+            filled = np.zeros((h, w), dtype=bool)
+            
+            # Flood fill using a queue-based approach
+            from collections import deque
+            queue = deque([(x, y)])
+            filled[y, x] = True
+            
+            tolerance = self.magic_wand_tolerance
+            
+            while queue:
+                cx, cy = queue.popleft()
+                
+                # Check 4-connected neighbors
+                for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+                    nx, ny = cx + dx, cy + dy
+                    
+                    # Check bounds
+                    if nx < 0 or nx >= w or ny < 0 or ny >= h:
+                        continue
+                    
+                    # Skip if already filled
+                    if filled[ny, nx]:
+                        continue
+                    
+                    # Check color similarity
+                    if len(img_array.shape) == 3:
+                        neighbor_color = img_array[ny, nx].astype(float)
+                        color_diff = np.sqrt(np.sum((neighbor_color - seed_color) ** 2))
+                    else:
+                        neighbor_color = float(img_array[ny, nx])
+                        color_diff = abs(neighbor_color - seed_color)
+                    
+                    if color_diff <= tolerance:
+                        filled[ny, nx] = True
+                        queue.append((nx, ny))
+            
+            # Convert filled region to mask (255 for selected)
+            region_mask = (filled * 255).astype(np.uint8)
+            
+            # Apply feathering to smooth edges
+            region_mask = self.feather_mask(region_mask, feather_radius=3)
+            
+            # Merge with existing mask
+            mask_array = np.array(self.mask)
+            merged_mask = np.maximum(mask_array, region_mask)
+            
+            # Update mask
+            self.mask = Image.fromarray(merged_mask, mode='L')
+            self.mask_draw = ImageDraw.Draw(self.mask)
+            
+            # Update display
+            self.update_display()
+            
+            # Show result
+            selected_pixels = np.sum(filled)
+            total_pixels = filled.size
+            percentage = (selected_pixels / total_pixels) * 100
+            
+            self.status_label.config(text=f"Tool: Magic Wand - Selected {percentage:.1f}% ({selected_pixels:,} pixels)")
+            
+            # Save state for undo
+            self.save_state()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Magic wand selection failed:\n{str(e)}")
+            self.status_label.config(text="Tool: Magic Wand")
     
     def auto_select_gradients(self):
         """Automatically select areas with high gradients (edges/details)."""
@@ -254,13 +500,12 @@ class MaskEditorWindow:
             # Dilate to connect nearby edges
             gradient_mask = ndimage.binary_dilation(gradient_mask, iterations=2).astype(np.uint8) * 255
             
-            # Convert to PIL Image
-            gradient_mask_img = Image.fromarray(gradient_mask, mode='L')
+            # Apply feathering for smooth edges
+            gradient_mask = self.feather_mask(gradient_mask, feather_radius=4)
             
             # Merge with existing mask (union)
             mask_array = np.array(self.mask)
-            gradient_array = np.array(gradient_mask_img)
-            merged_mask = np.maximum(mask_array, gradient_array)
+            merged_mask = np.maximum(mask_array, gradient_mask)
             
             # Update mask
             self.mask = Image.fromarray(merged_mask, mode='L')
@@ -283,6 +528,9 @@ class MaskEditorWindow:
             
             self.status_label.config(text="Tool: Brush")
             
+            # Save state for undo
+            self.save_state()
+            
         except Exception as e:
             messagebox.showerror("Error", f"Failed to detect gradients:\n{str(e)}")
             self.status_label.config(text="Tool: Brush")
@@ -294,6 +542,8 @@ class MaskEditorWindow:
             self.mask = Image.new('L', (self.display_width, self.display_height), 0)
             self.mask_draw = ImageDraw.Draw(self.mask)
             self.update_display()
+            # Save state for undo
+            self.save_state()
     
     def canvas_to_image_coords(self, canvas_x, canvas_y):
         """Convert canvas coordinates to image coordinates accounting for scroll."""
@@ -304,15 +554,21 @@ class MaskEditorWindow:
     
     def on_mouse_down(self, event):
         """Handle mouse button press."""
-        self.drawing = True
         x, y = self.canvas_to_image_coords(event.x, event.y)
-        self.last_x = x
-        self.last_y = y
-        self.draw_at(x, y)
+        
+        if self.current_tool == 'magic_wand':
+            # Magic wand: flood fill on click
+            self.magic_wand_select(int(x), int(y))
+        else:
+            # Brush/Eraser: start drawing
+            self.drawing = True
+            self.last_x = x
+            self.last_y = y
+            self.draw_at(x, y)
     
     def on_mouse_drag(self, event):
         """Handle mouse drag."""
-        if self.drawing:
+        if self.drawing and self.current_tool != 'magic_wand':
             x, y = self.canvas_to_image_coords(event.x, event.y)
             # Draw line from last position to current
             if self.last_x is not None and self.last_y is not None:
@@ -326,28 +582,71 @@ class MaskEditorWindow:
         self.last_x = None
         self.last_y = None
         self.update_display()
+        # Save state after brush/eraser stroke is complete
+        if self.current_tool in ['brush', 'eraser']:
+            self.save_state()
+    
+    def draw_soft_brush(self, x, y):
+        """Draw a soft-edged brush stroke at position.
+        
+        Args:
+            x, y: Center position of brush
+        """
+        # Get mask as numpy array
+        mask_array = np.array(self.mask).astype(float)
+        
+        radius = self.brush_size // 2
+        feather = max(2, radius // 3)  # Feather is 1/3 of radius
+        
+        # Create coordinate grids
+        y_coords, x_coords = np.ogrid[:self.display_height, :self.display_width]
+        
+        # Calculate distance from brush center
+        distance = np.sqrt((x_coords - x)**2 + (y_coords - y)**2)
+        
+        # Create soft brush: full opacity at center, fade to zero at edge
+        # Inner circle (full opacity)
+        inner_radius = max(1, radius - feather)
+        
+        # Calculate brush opacity based on distance
+        brush_opacity = np.zeros_like(distance)
+        
+        # Full opacity in inner circle
+        brush_opacity[distance <= inner_radius] = 1.0
+        
+        # Smooth falloff in feather zone
+        feather_zone = (distance > inner_radius) & (distance <= radius)
+        if feather > 0:
+            falloff = 1.0 - (distance[feather_zone] - inner_radius) / feather
+            brush_opacity[feather_zone] = falloff
+        
+        if self.current_tool == 'brush':
+            # Add to mask (max blend)
+            mask_array = np.maximum(mask_array, brush_opacity * 255)
+        else:  # eraser
+            # Subtract from mask (min blend)
+            mask_array = np.minimum(mask_array, (1 - brush_opacity) * 255)
+        
+        # Convert back to PIL Image
+        self.mask = Image.fromarray(mask_array.astype(np.uint8), mode='L')
+        self.mask_draw = ImageDraw.Draw(self.mask)
     
     def draw_at(self, x, y):
         """Draw at specific position."""
         # Constrain to canvas bounds
-        x = max(0, min(x, self.display_width))
-        y = max(0, min(y, self.display_height))
+        x = max(0, min(x, self.display_width - 1))
+        y = max(0, min(y, self.display_height - 1))
         
-        # Draw circle
-        color = 255 if self.current_tool == 'brush' else 0
-        radius = self.brush_size // 2
-        
-        bbox = [x - radius, y - radius, x + radius, y + radius]
-        self.mask_draw.ellipse(bbox, fill=color)
+        # Draw with soft brush
+        self.draw_soft_brush(x, y)
         
         # Update display
         self.update_display()
     
     def draw_line(self, x1, y1, x2, y2):
-        """Draw line between two points using circular brush."""
+        """Draw line between two points using soft circular brush."""
         import math
         
-        color = 255 if self.current_tool == 'brush' else 0
         radius = self.brush_size // 2
         
         # Calculate distance between points
@@ -358,17 +657,21 @@ class MaskEditorWindow:
         if distance == 0:
             return
         
-        # Draw circles along the line for smooth circular brush
-        steps = max(int(distance / (radius / 2)), 1)  # Overlap circles for smooth line
+        # Draw soft brush strokes along the line
+        # Use smaller steps for smoother lines
+        steps = max(int(distance / (radius / 3)), 1)
         
         for i in range(steps + 1):
             t = i / steps if steps > 0 else 0
             x = x1 + dx * t
             y = y1 + dy * t
             
-            # Draw circle at this position
-            bbox = [x - radius, y - radius, x + radius, y + radius]
-            self.mask_draw.ellipse(bbox, fill=color)
+            # Constrain to bounds
+            x = max(0, min(x, self.display_width - 1))
+            y = max(0, min(y, self.display_height - 1))
+            
+            # Draw soft brush at this position
+            self.draw_soft_brush(x, y)
         
         # Update display
         self.update_display()
