@@ -390,6 +390,7 @@ class DenoiserGUI:
         self.processing = False
         self.last_processed_files = []  # Store paths for comparison
         self.current_mask = None  # Store mask for selective denoising
+        self.mask_cache = {}  # Cache masks per image path
         
         self.create_widgets()
         self.setup_logging()
@@ -762,8 +763,14 @@ class DenoiserGUI:
                 self.input_path.set(files[0])
                 # Enable mask editing for single file
                 self.edit_mask_btn.config(state='normal')
-                self.current_mask = None  # Reset mask
-                self.mask_status.config(text="")
+                # Check if we have a cached mask for this image
+                image_path = files[0]
+                if image_path in self.mask_cache:
+                    self.current_mask = self.mask_cache[image_path]
+                    self.mask_status.config(text="✓ Mask loaded from cache")
+                else:
+                    self.current_mask = None
+                    self.mask_status.config(text="")
             else:
                 self.input_path.set(f"{len(files)} files selected")
                 # Disable mask editing for multiple files
@@ -788,7 +795,9 @@ class DenoiserGUI:
         
         try:
             from mask_editor import MaskEditorWindow
-            MaskEditorWindow(self.root, image_path, callback=self.on_mask_created)
+            # Pass existing mask if available
+            initial_mask = self.mask_cache.get(image_path, None)
+            MaskEditorWindow(self.root, image_path, callback=self.on_mask_created, initial_mask=initial_mask)
         except Exception as e:
             messagebox.showerror("Error", f"Could not open mask editor:\n{str(e)}")
     
@@ -799,6 +808,12 @@ class DenoiserGUI:
             mask_array: Numpy array of mask (0-1 float)
         """
         self.current_mask = mask_array
+        
+        # Cache the mask for this image
+        if self.input_files and len(self.input_files) == 1:
+            image_path = self.input_files[0]
+            self.mask_cache[image_path] = mask_array
+        
         self.mask_status.config(text="✓ Mask applied")
         self.log_message("Mask created for selective denoising")
     

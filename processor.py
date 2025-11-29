@@ -332,24 +332,62 @@ class ImageProcessor:
             # Apply optional sharpening to restore structure
             if self.config.output.apply_sharpening:
                 from image_filters import apply_unsharp_mask
-                filtered_img = apply_unsharp_mask(
+                import numpy as np
+                
+                # Apply sharpening
+                sharpened_img = apply_unsharp_mask(
                     filtered_img, 
                     radius=self.config.output.sharpen_radius,
                     amount=self.config.output.sharpen_amount,
                     preserve_color=self.config.output.preserve_color
                 )
-                sharpen_tag = " [color-preserving]" if self.config.output.preserve_color else ""
+                
+                # If mask is present, only sharpen masked areas
+                if mask is not None:
+                    # Expand mask to match image channels if needed
+                    mask_for_sharpen = mask
+                    if filtered_img.ndim == 3 and mask_for_sharpen.ndim == 2:
+                        mask_for_sharpen = np.expand_dims(mask_for_sharpen, axis=2)
+                    
+                    # Blend: sharpened in masked areas, original filtered in unmasked areas
+                    filtered_img = (sharpened_img * mask_for_sharpen + filtered_img * (1 - mask_for_sharpen)).astype(filtered_img.dtype)
+                    sharpen_tag = " [masked areas only]"
+                else:
+                    filtered_img = sharpened_img
+                    sharpen_tag = ""
+                
+                if self.config.output.preserve_color:
+                    sharpen_tag += " [color-preserving]"
+                
                 self.logger.info(f"  ✓ Applied sharpening (amount={self.config.output.sharpen_amount}, " +
                                f"radius={self.config.output.sharpen_radius}){sharpen_tag}")
             
             # Apply optional saturation boost
             if self.config.output.boost_saturation:
                 from image_filters import boost_saturation
-                filtered_img = boost_saturation(
+                import numpy as np
+                
+                # Apply saturation boost
+                boosted_img = boost_saturation(
                     filtered_img,
                     amount=self.config.output.saturation_amount
                 )
-                self.logger.info(f"  ✓ Boosted saturation (amount={self.config.output.saturation_amount})")
+                
+                # If mask is present, only boost saturation in masked areas
+                if mask is not None:
+                    # Expand mask to match image channels if needed
+                    mask_for_saturation = mask
+                    if filtered_img.ndim == 3 and mask_for_saturation.ndim == 2:
+                        mask_for_saturation = np.expand_dims(mask_for_saturation, axis=2)
+                    
+                    # Blend: boosted in masked areas, original filtered in unmasked areas
+                    filtered_img = (boosted_img * mask_for_saturation + filtered_img * (1 - mask_for_saturation)).astype(filtered_img.dtype)
+                    saturation_tag = " [masked areas only]"
+                else:
+                    filtered_img = boosted_img
+                    saturation_tag = ""
+                
+                self.logger.info(f"  ✓ Boosted saturation (amount={self.config.output.saturation_amount}){saturation_tag}")
             
             # Save filtered image
             output_filename = get_output_filename(

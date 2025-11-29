@@ -14,13 +14,14 @@ from scipy import ndimage
 class MaskEditorWindow:
     """Interactive mask editor for selective denoising."""
     
-    def __init__(self, parent, image_path, callback=None):
+    def __init__(self, parent, image_path, callback=None, initial_mask=None):
         """Initialize mask editor.
         
         Args:
             parent: Parent tkinter window
             image_path: Path to image file
             callback: Function to call with mask when done (receives numpy array)
+            initial_mask: Optional numpy array with existing mask to load
         """
         self.window = tk.Toplevel(parent)
         self.window.title("Mask Editor - Select Areas to Denoise")
@@ -44,8 +45,15 @@ class MaskEditorWindow:
         self.max_height = self.canvas_height
         self.scale_image()
         
-        # Create mask (white = denoise, black = skip)
-        self.mask = Image.new('L', (self.display_width, self.display_height), 0)
+        # Create or load mask
+        if initial_mask is not None:
+            # Load existing mask and scale to display size
+            mask_img = Image.fromarray((initial_mask * 255).astype(np.uint8), mode='L')
+            self.mask = mask_img.resize((self.display_width, self.display_height), Image.Resampling.LANCZOS)
+        else:
+            # Create new empty mask (white = denoise, black = skip)
+            self.mask = Image.new('L', (self.display_width, self.display_height), 0)
+        
         self.mask_draw = ImageDraw.Draw(self.mask)
         
         # Tool state
