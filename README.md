@@ -128,14 +128,18 @@ The tool generates:
 ## 📋 Requirements
 
 **Core Requirements:**
-- Python 3.8 - 3.13 (recommended: 3.10, 3.11, or 3.12)
+- Python 3.8 - 3.14 (recommended: 3.10, 3.11, 3.12, or 3.13)
 - NumPy
 - scikit-image
 - SciPy
 
 **Optional (for RAW support):**
-- rawpy (requires Python 3.8 - 3.13)
-- Note: Python 3.14+ not yet supported by rawpy
+- rawpy (requires Python 3.8 - 3.13 only)
+- Note: Python 3.14+ works for all formats except RAW
+
+**Optional (for AI Denoising):**
+- PyTorch (~500MB)
+- Install via GUI or `pip install -r requirements-ai.txt`
 
 ## 🏗️ Project Structure
 
