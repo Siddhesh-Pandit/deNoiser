@@ -122,9 +122,11 @@ class AIDenoiser:
                 'size_mb': 3.0
             },
             'nafnet': {
-                'url': 'https://github.com/megvii-research/NAFNet/releases/download/v1.0/NAFNet-width32.pth',
-                'filename': 'nafnet_width32.pth',
-                'size_mb': 8.9
+                # NAFNet SIDD model (trained on real-world noise)
+                'url': 'https://github.com/megvii-research/NAFNet/releases/download/v1.0/NAFNet-SIDD-width32.pth',
+                'filename': 'nafnet_sidd_width32.pth',
+                'size_mb': 8.9,
+                'fallback_url': 'https://huggingface.co/swzamir/NAFNet/resolve/main/NAFNet-SIDD-width32.pth'
             }
         }
         
@@ -160,11 +162,27 @@ class AIDenoiser:
                         f"Downloading: {mb_downloaded:.1f}/{mb_total:.1f} MB"
                     )
             
-            urllib.request.urlretrieve(
-                model_info['url'],
-                model_path,
-                reporthook=report_progress
-            )
+            # Try primary URL
+            try:
+                urllib.request.urlretrieve(
+                    model_info['url'],
+                    model_path,
+                    reporthook=report_progress
+                )
+            except Exception as primary_error:
+                # Try fallback URL if available
+                if 'fallback_url' in model_info:
+                    logger.warning(f"Primary download failed, trying fallback URL...")
+                    if progress_callback:
+                        progress_callback(0, 100, "Trying alternative download...")
+                    
+                    urllib.request.urlretrieve(
+                        model_info['fallback_url'],
+                        model_path,
+                        reporthook=report_progress
+                    )
+                else:
+                    raise primary_error
             
             logger.info(f"Model downloaded successfully: {model_path}")
             if progress_callback:
@@ -262,6 +280,20 @@ class AIDenoiser:
         else:
             was_grayscale = False
         
+        # Pad image to dimensions divisible by 8 (required by AI models)
+        h, w = img_float.shape[:2]
+        pad_h = (8 - h % 8) % 8
+        pad_w = (8 - w % 8) % 8
+        
+        if pad_h > 0 or pad_w > 0:
+            # Pad with reflection to avoid edge artifacts
+            img_float = np.pad(
+                img_float,
+                ((0, pad_h), (0, pad_w), (0, 0)),
+                mode='reflect'
+            )
+            logger.info(f"  Padded image from {h}×{w} to {img_float.shape[0]}×{img_float.shape[1]} (divisible by 8)")
+        
         if progress_callback:
             progress_callback(20, 100, "Running AI denoiser...")
         
@@ -276,6 +308,11 @@ class AIDenoiser:
             
             # Convert back: (1, C, H, W) -> (H, W, C)
             output = output_tensor.squeeze(0).permute(1, 2, 0).cpu().numpy()
+            
+            # Crop back to original size (remove padding)
+            if pad_h > 0 or pad_w > 0:
+                output = output[:h, :w, :]
+                logger.info(f"  Cropped output back to original size {h}×{w}")
             
             # Clip to valid range
             output = np.clip(output, 0, 1)

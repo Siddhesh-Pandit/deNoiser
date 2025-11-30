@@ -85,9 +85,13 @@ def save_metrics_to_csv(metrics_list, output_folder_path):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     csv_filename = os.path.join(output_folder_path, f"denoising_metrics_{timestamp}.csv")
     
-    fieldnames = ['filename', 'gaussian_noise_reduction', 'gaussian_psnr', 
-                  'median_noise_reduction', 'median_psnr', 
-                  'nonlocal_noise_reduction', 'nonlocal_psnr']
+    fieldnames = ['filename', 
+                  'gaussian_noise_reduction', 'gaussian_psnr',
+                  'gaussian_ai_noise_reduction', 'gaussian_ai_psnr',
+                  'median_noise_reduction', 'median_psnr',
+                  'median_ai_noise_reduction', 'median_ai_psnr',
+                  'nonlocal_noise_reduction', 'nonlocal_psnr',
+                  'nonlocal_ai_noise_reduction', 'nonlocal_ai_psnr']
     
     with open(csv_filename, 'w', newline='', encoding='utf-8') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)

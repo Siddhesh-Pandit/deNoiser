@@ -621,7 +621,7 @@ class DenoiserGUI:
         
         # Reinstall/Update button
         self.ai_reinstall_btn = ttk.Button(ai_frame, text="⚙️ GPU Setup", 
-                                           command=self.show_pytorch_options, width=12)
+                                           command=self.show_pytorch_options, width=15)
         self.ai_reinstall_btn.grid(row=1, column=0, columnspan=2, sticky=tk.W, padx=5, pady=5)
         create_tooltip(self.ai_reinstall_btn, "Install or update PyTorch with GPU support.\nUse this to add NVIDIA/AMD GPU support.")
         
@@ -689,6 +689,10 @@ class DenoiserGUI:
         # Current file label
         self.progress_label = ttk.Label(progress_frame, text="Ready to process")
         self.progress_label.pack(fill=tk.X, pady=(0, 5))
+        
+        # AI status label (shown during AI processing)
+        self.ai_status_label = ttk.Label(progress_frame, text="", foreground="blue", font=('Arial', 9, 'italic'))
+        self.ai_status_label.pack(fill=tk.X, pady=(0, 5))
         
         # Progress bar
         self.progress_bar = ttk.Progressbar(progress_frame, mode='determinate', length=400)
@@ -788,6 +792,11 @@ class DenoiserGUI:
         # Remove existing handlers
         for handler in logger.handlers[:]:
             logger.removeHandler(handler)
+        
+        # Add console handler (for debug mode)
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        logger.addHandler(console_handler)
         
         # Add GUI handler
         gui_handler = TextHandler(self.log_text)
@@ -989,6 +998,10 @@ class DenoiserGUI:
         self.log_text.delete(1.0, tk.END)
         self.log_text.configure(state='disabled')
         
+        # Auto-open log window if AI is enabled
+        if self.enable_ai.get():
+            self.show_log_window()
+        
         # Disable buttons during processing
         self.process_btn.config(state='disabled', text="Processing...")
         self.compare_btn.config(state='disabled')
@@ -998,6 +1011,7 @@ class DenoiserGUI:
         self.progress_bar['value'] = 0
         self.progress_percent.config(text="0%")
         self.progress_label.config(text="Starting...")
+        self.ai_status_label.config(text="")  # Clear AI status
         
         # Start processing in thread
         thread = threading.Thread(target=self.process_images, daemon=True)
@@ -1530,6 +1544,11 @@ class DenoiserGUI:
         self.progress_percent.config(text=f"{progress:.1f}%")
         self.progress_label.config(text=f"Processing: {filename} ({current}/{total})")
     
+    def update_ai_status(self, status_msg):
+        """Update AI processing status label."""
+        self.ai_status_label.config(text=status_msg)
+        self.root.update_idletasks()  # Force GUI update
+    
     def show_comparison_dialog(self, processed_count, csv_file):
         """Show success dialog with option to view comparison."""
         # Check if we should offer comparison (non-Photos preset or Compare All)
@@ -1567,28 +1586,65 @@ class DenoiserGUI:
         config = self.create_config()
         base_name = os.path.splitext(os.path.basename(original_path))[0]
         
+        # Debug logging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Comparison: original_path = {original_path}")
+        logger.info(f"Comparison: basename = {os.path.basename(original_path)}")
+        logger.info(f"Comparison: base_name = {base_name}")
+        
         # Check for different filter outputs (classical and AI)
         filter_suffixes = []
         
-        # Add AI suffix if enabled
+        # Add AI suffix if enabled (AI replaces the classical filter)
         if self.enable_ai.get():
-            filter_suffixes.append('nonlocal_ai')  # AI uses nonlocal as base name
+            # When AI is enabled, it replaces each enabled filter
+            if self.enable_nonlocal.get():
+                filter_suffixes.append('nonlocal_ai')
+            if self.enable_gaussian.get():
+                filter_suffixes.append('gaussian_ai')
+            if self.enable_median.get():
+                filter_suffixes.append('median_ai')
+            # If no classical filters enabled, AI still runs with nonlocal as base
+            if not any([self.enable_gaussian.get(), self.enable_median.get(), self.enable_nonlocal.get()]):
+                filter_suffixes.append('nonlocal_ai')
+            
+            # FALLBACK: If AI failed, also check for classical filter outputs
+            # (AI falls back to classical filters on error)
+            if self.enable_nonlocal.get():
+                filter_suffixes.append('nonlocal')
+            if self.enable_gaussian.get():
+                filter_suffixes.append('gaussian')
+            if self.enable_median.get():
+                filter_suffixes.append('median')
+            # If no classical filters enabled, check nonlocal (AI fallback)
+            if not any([self.enable_gaussian.get(), self.enable_median.get(), self.enable_nonlocal.get()]):
+                filter_suffixes.append('nonlocal')
+            
+            # Debug logging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Comparison: Looking for AI output with suffixes: {filter_suffixes}")
+            logger.info(f"Comparison: Filters enabled - Gaussian:{self.enable_gaussian.get()}, Median:{self.enable_median.get()}, Nonlocal:{self.enable_nonlocal.get()}")
         
-        # Add classical filter suffixes
-        if self.enable_gaussian.get():
-            filter_suffixes.append('gaussian')
-        if self.enable_median.get():
-            filter_suffixes.append('median')
-        if self.enable_nonlocal.get():
-            filter_suffixes.append('nonlocal')
+        # Add classical filter suffixes (only if AI is disabled)
+        if not self.enable_ai.get():
+            if self.enable_gaussian.get():
+                filter_suffixes.append('gaussian')
+            if self.enable_median.get():
+                filter_suffixes.append('median')
+            if self.enable_nonlocal.get():
+                filter_suffixes.append('nonlocal')
         
         # If multiple filters, show first one found
         output_path = None
+        checked_paths = []
         for suffix in filter_suffixes:
             test_path = os.path.join(
                 config.output_path,
                 f"{base_name}_{suffix}.{config.output.format}"
             )
+            checked_paths.append(f"{base_name}_{suffix}.{config.output.format}")
             if os.path.exists(test_path):
                 output_path = test_path
                 break
@@ -1599,7 +1655,15 @@ class DenoiserGUI:
             except Exception as e:
                 messagebox.showerror("Error", f"Could not open comparison window:\n{str(e)}")
         else:
-            messagebox.showwarning("Warning", "Could not find processed image for comparison")
+            # Show detailed error with what was checked
+            checked_list = "\n".join([f"  • {p}" for p in checked_paths])
+            messagebox.showwarning(
+                "Warning", 
+                f"Could not find processed image for comparison.\n\n"
+                f"Looked for:\n{checked_list}\n\n"
+                f"In folder:\n{config.output_path}\n\n"
+                f"Check the Processing Log for details."
+            )
     
     def process_images(self):
         """Process images (runs in separate thread)."""
@@ -1629,7 +1693,8 @@ class DenoiserGUI:
                 processed_count, metrics_list = processor.process_files(
                     files_to_process, 
                     progress_callback=lambda c, t, f: self.root.after(0, self.update_progress, c, t, f),
-                    mask=mask
+                    mask=mask,
+                    ai_status_callback=lambda msg: self.root.after(0, self.update_ai_status, msg)
                 )
             else:
                 logger.info(f"Input folder: {config.input_path}")
@@ -1647,7 +1712,8 @@ class DenoiserGUI:
                 # Process entire folder with progress callback
                 processor = ImageProcessor(config)
                 processed_count, metrics_list = processor.process_batch(
-                    progress_callback=lambda c, t, f: self.root.after(0, self.update_progress, c, t, f)
+                    progress_callback=lambda c, t, f: self.root.after(0, self.update_progress, c, t, f),
+                    ai_status_callback=lambda msg: self.root.after(0, self.update_ai_status, msg)
                 )
             
             if processed_count > 0:
@@ -1659,6 +1725,7 @@ class DenoiserGUI:
                 self.root.after(0, lambda: self.progress_bar.config(value=100))
                 self.root.after(0, lambda: self.progress_percent.config(text="100%"))
                 self.root.after(0, lambda: self.progress_label.config(text=f"Complete! Processed {processed_count} images"))
+                self.root.after(0, lambda: self.ai_status_label.config(text=""))  # Clear AI status
                 
                 # Enable Compare button
                 self.root.after(0, lambda: self.compare_btn.config(state='normal'))

@@ -70,15 +70,18 @@ class ImageProcessor:
         
         self.logger.info("=" * 60)
     
-    def process_batch(self, progress_callback=None):
+    def process_batch(self, progress_callback=None, ai_status_callback=None):
         """Process all images in input folder.
         
         Args:
             progress_callback: Optional callback function(current, total, filename)
+            ai_status_callback: Optional callback function(status_message) for AI progress
         
         Returns:
             Tuple of (processed_count, metrics_list)
         """
+        # Store AI callback for use in _apply_and_save_filter
+        self.ai_status_callback = ai_status_callback
         os.makedirs(self.config.output_path, exist_ok=True)
         
         # Log all current settings
@@ -110,17 +113,20 @@ class ImageProcessor:
         
         return processed_count, metrics_list
     
-    def process_files(self, file_paths, progress_callback=None, mask=None):
+    def process_files(self, file_paths, progress_callback=None, mask=None, ai_status_callback=None):
         """Process specific image files.
         
         Args:
             file_paths: List of full file paths to process
             progress_callback: Optional callback function(current, total, filename)
             mask: Optional numpy array mask for selective denoising (0-1 float)
+            ai_status_callback: Optional callback function(status_message) for AI progress
         
         Returns:
             Tuple of (processed_count, metrics_list)
         """
+        # Store AI callback for use in _apply_and_save_filter
+        self.ai_status_callback = ai_status_callback
         os.makedirs(self.config.output_path, exist_ok=True)
         
         # Log all current settings
@@ -178,10 +184,19 @@ class ImageProcessor:
                         pass
                 
                 # Apply Non-local means (or AI if enabled without classical filters)
-                if self.config.filters.enable_nonlocal or (self.config.ai_denoiser.enable_ai and not any([
+                should_run = self.config.filters.enable_nonlocal or (self.config.ai_denoiser.enable_ai and not any([
                     self.config.filters.enable_gaussian,
                     self.config.filters.enable_median
-                ])):
+                ]))
+                
+                # Debug logging
+                if self.config.ai_denoiser.enable_ai and not self.config.filters.enable_nonlocal:
+                    self.logger.info(f"  AI-only mode: enable_nonlocal={self.config.filters.enable_nonlocal}, "
+                                   f"enable_gaussian={self.config.filters.enable_gaussian}, "
+                                   f"enable_median={self.config.filters.enable_median}, "
+                                   f"should_run={should_run}")
+                
+                if should_run:
                     filters_attempted += 1
                     try:
                         self._apply_and_save_filter(
@@ -267,8 +282,11 @@ class ImageProcessor:
             except Exception:
                 pass  # Error already logged in _apply_and_save_filter
         
-        # Apply Non-local means
-        if self.config.filters.enable_nonlocal:
+        # Apply Non-local means (or AI if enabled without classical filters)
+        if self.config.filters.enable_nonlocal or (self.config.ai_denoiser.enable_ai and not any([
+            self.config.filters.enable_gaussian,
+            self.config.filters.enable_median
+        ])):
             filters_attempted += 1
             try:
                 self._apply_and_save_filter(
@@ -282,7 +300,7 @@ class ImageProcessor:
                         self.config.output.preserve_color
                     ),
                     filter_name='nonlocal',
-                    filter_params=f"h={self.config.nonlocal_means.h_multiplier}×σ" + (" [color-preserving]" if self.config.output.preserve_color else "")
+                    filter_params=f"h={self.config.nonlocal_means.h_multiplier}×σ" + (" [color-preserving]" if self.config.output.preserve_color else "") if self.config.filters.enable_nonlocal else "AI only"
                 )
                 filters_succeeded += 1
             except Exception:
@@ -322,22 +340,34 @@ class ImageProcessor:
                         # Determine device
                         device = None if self.config.ai_denoiser.device == 'auto' else self.config.ai_denoiser.device
                         
+                        # Create progress callback that logs and updates GUI
+                        def ai_progress(c, t, m):
+                            self.logger.info(f"    {m}")
+                            if hasattr(self, 'ai_status_callback') and self.ai_status_callback:
+                                self.ai_status_callback(f"🤖 AI: {m}")
+                        
                         # AI denoise
                         filtered_img = denoise_with_ai(
                             img,
                             model_name=self.config.ai_denoiser.model_name,
                             device=device,
-                            progress_callback=lambda c, t, m: self.logger.info(f"    {m}")
+                            progress_callback=ai_progress
                         )
                         
                         filter_name = f"{filter_name}_ai"
                         self.logger.info(f"  ✓ AI denoising complete")
+                        if hasattr(self, 'ai_status_callback') and self.ai_status_callback:
+                            self.ai_status_callback("✓ AI denoising complete")
                     else:
-                        self.logger.warning("  AI dependencies not available, using classical filters")
+                        self.logger.warning("  ⚠ AI dependencies not available, using classical filters")
+                        if hasattr(self, 'ai_status_callback') and self.ai_status_callback:
+                            self.ai_status_callback("⚠ AI not available, using classical filters")
                         filtered_img = filter_func()
                 except Exception as e:
-                    self.logger.error(f"  AI denoising failed: {e}")
-                    self.logger.info("  Falling back to classical filters")
+                    self.logger.error(f"  ✗ AI denoising failed: {e}")
+                    self.logger.warning("  ⚠ Falling back to classical filters")
+                    if hasattr(self, 'ai_status_callback') and self.ai_status_callback:
+                        self.ai_status_callback("⚠ AI failed, using classical filters")
                     filtered_img = filter_func()
             else:
                 # Classical denoising
@@ -449,6 +479,9 @@ class ImageProcessor:
                 self.logger.info(f"  ✓ Boosted brightness (amount={self.config.output.brightness_amount}){brightness_tag}")
             
             # Save filtered image
+            # Debug logging BEFORE calling get_output_filename
+            self.logger.info(f"  DEBUG: filename={filename}, filter_name={filter_name}, format={self.config.output.format}, preserve={self.config.output.preserve_original_format}")
+            
             output_filename = get_output_filename(
                 filename, 
                 f"_{filter_name}", 
@@ -456,6 +489,10 @@ class ImageProcessor:
                 self.config.output.preserve_original_format
             )
             output_path = os.path.join(self.config.output_path, output_filename)
+            
+            # Debug logging AFTER
+            self.logger.info(f"  Saving: {output_filename}")
+            
             save_image(output_path, filtered_img, self.config.output.format, 
                       self.config.output.jpeg_quality)
             

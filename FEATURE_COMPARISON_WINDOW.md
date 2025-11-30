@@ -1,125 +1,184 @@
-# Before/After Comparison Window Feature
+# Comparison Window with AI Mode & Output Settings
 
-## Overview
+## Your Questions Answered
 
-Added an interactive before/after comparison window that appears after processing images with multiple filters. Users can drag a slider to smoothly reveal the processed image over the original, making it easy to evaluate denoising effectiveness.
+### Q1: Do output settings have an effect on AI mode?
+**YES** - All output settings affect AI mode the same way they affect classical filters.
+
+### Q2: Does the comparison window work with AI enabled + output settings?
+**YES** - It should work. The comparison window looks for files with the `_nonlocal_ai` suffix when AI is enabled.
+
+---
 
 ## How It Works
 
-### Always-Available Button
-The **"🔍 View Comparison"** button appears next to the "Start Processing" button:
-- Initially disabled (grayed out)
-- Becomes enabled after successful processing
-- Remains available for repeated viewing
-- Works with any filter configuration
-
-### Automatic Dialog (Multiple Filters Only)
-When processing with multiple filters, a dialog also appears asking:
-- "Would you like to view a before/after comparison?"
-- Clicking "Yes" opens the comparison window immediately
-- Clicking "No" lets you open it later via the button
-
-### User Experience
-1. Process images with any filter configuration
-2. After completion, the "🔍 View Comparison" button becomes active
-3. Click the button anytime to open the comparison window
-4. The window displays the first processed image with an interactive slider
-5. Drag the slider left/right to reveal the processed image over the original
-
-### Visual Design
-- **White slider line** with circular handle in the center
-- **Arrow indicators** (◀ ▶) on the handle showing drag direction
-- **Zoom controls** at top: 🔍− / 100% / 🔍+ / Reset buttons
-- **Labels** at bottom: "◀ BEFORE" and "AFTER ▶"
-- **Black background** for clean presentation
-- **Automatic scaling** to fit window while maintaining aspect ratio
-
-## Technical Implementation
-
-### New Class: `BeforeAfterWindow`
-Located in `gui.py`, this class creates a Toplevel window with:
-- Canvas-based image display
-- PIL/Pillow for image loading and manipulation
-- Real-time clipping of the "after" image based on slider position
-- Mouse event handling for dragging
-
-### Key Methods
-- `scale_images()` - Scales images to fit display (max 980x600)
-- `update_clip()` - Clips the after image at slider position
-- `on_click()`, `on_drag()`, `on_release()` - Handle mouse interaction
-
-### Integration Points
-- `show_comparison_dialog()` - Decides whether to offer comparison
-- `show_comparison_window()` - Opens the comparison window
-- `last_processed_files` - Tracks processed files for comparison
-
-## User Benefits
-
-1. **Instant Visual Feedback** - See exactly what changed
-2. **Easy Evaluation** - Quickly judge if denoising worked well
-3. **No File Switching** - Compare without opening multiple files
-4. **Intuitive Interface** - Natural drag interaction
-5. **Zoom for Details** - Inspect fine details at up to 400% zoom
-6. **Mouse Wheel Support** - Quick zoom with scroll wheel
-7. **Automatic Scaling** - Works with any image size
-
-## When Comparison is Available
-
-| Preset | Button Available? | Auto-Dialog? |
-|--------|------------------|--------------|
-| Photos | ✅ Yes (after processing) | ❌ No |
-| Documents | ✅ Yes (after processing) | ❌ No |
-| Low-Light | ✅ Yes (after processing) | ❌ No |
-| Compare All | ✅ Yes (after processing) | ✅ Yes |
-| Custom (2+ filters) | ✅ Yes (after processing) | ✅ Yes |
-| Custom (1 filter) | ✅ Yes (after processing) | ❌ No |
-
-**Note:** The button is always available after processing. The automatic dialog only appears when using multiple filters.
-
-## Dependencies
-
-Uses existing Pillow dependency (already in requirements.txt for icon generation).
-
-## Testing
-
-Run `test_comparison.py` to test the comparison window with generated test images:
-```bash
-python test_comparison.py
+### Processing Order (AI Mode):
+```
+1. AI Denoising (SCUNet/NAFNet)
+   ↓
+2. Apply Mask (if present)
+   ↓
+3. Apply Sharpening (if enabled)
+   ↓
+4. Apply Saturation Boost (if enabled)
+   ↓
+5. Apply Brightness Boost (if enabled)
+   ↓
+6. Save as: filename_nonlocal_ai.png
 ```
 
-This creates simple before/after images and opens the comparison window for testing.
+### File Naming:
 
-## Zoom Feature
+**Important:** When AI is enabled, it REPLACES the classical filter for each enabled filter.
 
-### Controls
-- **🔍− button** - Zoom out by 25%
-- **🔍+ button** - Zoom in by 25%
-- **Reset button** - Return to 100% zoom
-- **Mouse wheel** - Scroll to zoom in/out
-- **Scrollbars** - Pan around when zoomed in
-- **Zoom range** - 25% to 400%
+**AI Disabled (Classical Filters):**
+- Gaussian: `image_gaussian.png`
+- Median: `image_median.png`
+- Non-local Means: `image_nonlocal.png`
 
-### Usage
-1. Open comparison window
-2. Use zoom buttons or scroll wheel
-3. Zoom in to inspect fine details
-4. Use scrollbars to pan around zoomed image
-5. Drag slider at any zoom level
-6. Click Reset to return to original size
+**AI Enabled (AI Replaces Classical):**
+- AI + Gaussian enabled: `image_gaussian_ai.png`
+- AI + Median enabled: `image_median_ai.png`
+- AI + Non-local enabled: `image_nonlocal_ai.png`
+- AI only (no classical filters): `image_nonlocal_ai.png`
 
-### Benefits
-- **Fixed window size** - Window doesn't resize when zooming
-- **Scrollable view** - Pan around large zoomed images
-- **Inspect details** - See noise reduction at pixel level
-- **Verify sharpness** - Check if edges are preserved
-- **Compare textures** - Examine how filters affect fine detail
-- **Quality check** - Ensure no artifacts introduced
+The filename does NOT change based on output settings - they're baked into the saved file.
 
-## Future Enhancements
+### Comparison Window Logic:
+When you click "View Comparison", the window:
+1. Checks which filters are enabled
+2. Looks for files with matching suffixes (including `_ai` if AI is enabled)
+3. Opens the first one found
 
-Potential improvements:
-- Compare multiple filter outputs side-by-side
-- Save comparison as split image
-- Keyboard shortcuts for slider control
-- Multiple image navigation (prev/next buttons)
-- Pan support when zoomed in
+**Priority order (AI Enabled):**
+1. `nonlocal_ai` (if Non-local Means enabled)
+2. `gaussian_ai` (if Gaussian enabled)
+3. `median_ai` (if Median enabled)
+4. `nonlocal_ai` (if no classical filters enabled)
+
+**Priority order (AI Disabled):**
+1. `gaussian` (if Gaussian enabled)
+2. `median` (if Median enabled)
+3. `nonlocal` (if Non-local Means enabled)
+
+---
+
+## Troubleshooting
+
+### If comparison window doesn't work:
+
+**Check 1: File exists?**
+```
+Look in your output folder for:
+
+AI Enabled:
+- image_gaussian_ai.png (if Gaussian enabled)
+- image_median_ai.png (if Median enabled)
+- image_nonlocal_ai.png (if Non-local Means enabled OR no classical filters)
+
+AI Disabled:
+- image_gaussian.png (if Gaussian enabled)
+- image_median.png (if Median enabled)
+- image_nonlocal.png (if Non-local Means enabled)
+```
+
+**Check 2: Output format matches?**
+The comparison window looks for files with the format you selected (PNG/JPEG/TIFF).
+If you changed the format after processing, it won't find the file.
+
+**Check 3: Processing completed?**
+Make sure the processing finished successfully. Check the log for:
+```
+✓ AI denoising complete
+✓ Applied sharpening (if enabled)
+✓ Boosted saturation (if enabled)
+✓ Boosted brightness (if enabled)
+```
+
+**Check 4: Multiple filters enabled?**
+If you have multiple filters enabled, the comparison shows the FIRST one found.
+- With AI: Shows AI result
+- Without AI: Shows Gaussian → Median → Non-local (in that order)
+
+---
+
+## Output Settings Effect on AI
+
+All output settings work with AI mode:
+
+| Setting | Effect on AI | Applied When |
+|---------|-------------|--------------|
+| **Output Format** | ✅ Yes | During save |
+| **JPEG Quality** | ✅ Yes | During save (JPEG only) |
+| **Preserve Color** | ❌ No | AI handles color internally |
+| **Sharpening** | ✅ Yes | After AI, before save |
+| **Saturation Boost** | ✅ Yes | After AI, before save |
+| **Brightness Boost** | ✅ Yes | After AI, before save |
+| **Selective Denoising (Mask)** | ✅ Yes | After AI, blends with original |
+
+**Note:** "Preserve Color" only affects classical filters. AI models handle color preservation internally.
+
+---
+
+## Example Scenarios
+
+### Scenario 1: AI + Sharpening + Saturation
+```
+Settings:
+- AI: ✅ Enabled (SCUNet)
+- Sharpening: ✅ Enabled (amount: 1.2)
+- Saturation: ✅ Enabled (amount: 1.3)
+
+Result:
+- File: image_nonlocal_ai.png
+- Contains: AI denoised + sharpened + saturated
+- Comparison: Shows this combined result vs original
+```
+
+### Scenario 2: AI + Classical Filters
+```
+Settings:
+- AI: ✅ Enabled
+- Gaussian: ✅ Enabled
+- Median: ✅ Enabled
+
+Result:
+- Files created:
+  - image_gaussian_ai.png (AI replaces Gaussian)
+  - image_median_ai.png (AI replaces Median)
+- Comparison: Shows gaussian_ai result (first priority)
+
+Note: When AI is enabled, it REPLACES the classical filter.
+You don't get both classical and AI versions.
+```
+
+### Scenario 3: AI + Mask + Output Settings
+```
+Settings:
+- AI: ✅ Enabled
+- Mask: ✅ Created (painted areas)
+- Sharpening: ✅ Enabled
+- Saturation: ✅ Enabled
+
+Result:
+- File: image_nonlocal_ai.png
+- Contains:
+  - Masked areas: AI denoised + sharpened + saturated
+  - Unmasked areas: Original (untouched)
+- Comparison: Shows selective result vs original
+```
+
+---
+
+## If You're Still Having Issues
+
+Please check:
+1. **Log output** - Does it show successful AI processing?
+2. **Output folder** - Do you see the `_nonlocal_ai` file?
+3. **File format** - Does it match your selected output format?
+4. **Error messages** - Any errors in the log window?
+
+If the comparison window still doesn't work, there might be a bug. Please share:
+- Your settings (AI model, output format, enabled filters)
+- Log output
+- Whether the output file exists
