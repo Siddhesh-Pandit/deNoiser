@@ -395,6 +395,7 @@ class DenoiserGUI:
         self.raw_mode = tk.StringVar(value="half")
         
         self.processing = False
+        self.cancel_requested = False  # Flag for cancellation
         self.last_processed_files = []  # Store paths for comparison
         self.current_mask = None  # Store mask for selective denoising
         self.mask_cache = {}  # Cache masks per image path
@@ -614,7 +615,10 @@ class DenoiserGUI:
         model_combo = ttk.Combobox(ai_frame, textvariable=self.ai_model,
                                    values=['scunet', 'nafnet'], width=10, state='readonly')
         model_combo.grid(row=0, column=2, sticky=tk.W)
-        create_tooltip(model_combo, "SCUNet: Faster, 3MB model\nNAFNet: Better quality, 9MB model")
+        create_tooltip(model_combo, 
+                      "SCUNet: Faster, 3MB (Recommended)\n"
+                      "NAFNet: Better quality, 9MB\n"
+                      "Note: NAFNet download may fail, use SCUNet if issues occur")
         
         self.ai_status_label = ttk.Label(ai_frame, text="", foreground="blue")
         self.ai_status_label.grid(row=0, column=3, sticky=tk.W, padx=10)
@@ -674,6 +678,11 @@ class DenoiserGUI:
         
         self.process_btn = ttk.Button(button_frame, text="Start Processing", command=self.start_processing, width=22)
         self.process_btn.pack(side=tk.LEFT, padx=5)
+        
+        self.cancel_btn = ttk.Button(button_frame, text="⏹ Cancel", command=self.cancel_processing, width=15)
+        self.cancel_btn.pack(side=tk.LEFT, padx=5)
+        self.cancel_btn.config(state='disabled')  # Disabled until processing starts
+        create_tooltip(self.cancel_btn, "Cancel current processing operation")
         
         self.compare_btn = ttk.Button(button_frame, text="🔍 View Comparison", command=self.show_comparison_window, width=25)
         self.compare_btn.pack(side=tk.LEFT, padx=5)
@@ -1002,10 +1011,12 @@ class DenoiserGUI:
         if self.enable_ai.get():
             self.show_log_window()
         
-        # Disable buttons during processing
+        # Disable/enable buttons during processing
         self.process_btn.config(state='disabled', text="Processing...")
+        self.cancel_btn.config(state='normal')  # Enable cancel button
         self.compare_btn.config(state='disabled')
         self.processing = True
+        self.cancel_requested = False  # Reset cancel flag
         
         # Reset progress
         self.progress_bar['value'] = 0
@@ -1016,6 +1027,16 @@ class DenoiserGUI:
         # Start processing in thread
         thread = threading.Thread(target=self.process_images, daemon=True)
         thread.start()
+    
+    def cancel_processing(self):
+        """Cancel the current processing operation."""
+        if self.processing:
+            self.cancel_requested = True
+            self.ai_status_label.config(text="⏹ Cancelling...")
+            self.cancel_btn.config(state='disabled')
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning("⏹ Processing cancelled by user")
     
     def preset_photos(self):
         """Apply preset for photos (portraits, landscapes)."""
@@ -1690,6 +1711,7 @@ class DenoiserGUI:
                 
                 # Process selected files directly with progress callback
                 processor = ImageProcessor(config)
+                processor.cancel_flag = lambda: self.cancel_requested  # Pass cancel check
                 processed_count, metrics_list = processor.process_files(
                     files_to_process, 
                     progress_callback=lambda c, t, f: self.root.after(0, self.update_progress, c, t, f),
@@ -1711,6 +1733,7 @@ class DenoiserGUI:
                 
                 # Process entire folder with progress callback
                 processor = ImageProcessor(config)
+                processor.cancel_flag = lambda: self.cancel_requested  # Pass cancel check
                 processed_count, metrics_list = processor.process_batch(
                     progress_callback=lambda c, t, f: self.root.after(0, self.update_progress, c, t, f),
                     ai_status_callback=lambda msg: self.root.after(0, self.update_ai_status, msg)
@@ -1752,8 +1775,10 @@ class DenoiserGUI:
         
         finally:
             self.processing = False
+            self.cancel_requested = False
             # Don't clear input_files - keep selection for successive runs
             self.root.after(0, lambda: self.process_btn.config(state='normal', text="Start Processing"))
+            self.root.after(0, lambda: self.cancel_btn.config(state='disabled'))  # Disable cancel button
     
     def on_closing(self):
         """Handle window close event."""

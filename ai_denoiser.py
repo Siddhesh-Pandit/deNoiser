@@ -123,10 +123,13 @@ class AIDenoiser:
             },
             'nafnet': {
                 # NAFNet SIDD model (trained on real-world noise)
+                # Note: NAFNet models may not be publicly available
+                # Using a direct download link that works
                 'url': 'https://github.com/megvii-research/NAFNet/releases/download/v1.0/NAFNet-SIDD-width32.pth',
                 'filename': 'nafnet_sidd_width32.pth',
                 'size_mb': 8.9,
-                'fallback_url': 'https://huggingface.co/swzamir/NAFNet/resolve/main/NAFNet-SIDD-width32.pth'
+                'fallback_url': None,  # No working fallback currently
+                'note': 'NAFNet download may fail. Use SCUNet as alternative.'
             }
         }
         
@@ -194,6 +197,13 @@ class AIDenoiser:
             logger.error(f"Failed to download model: {e}")
             if model_path.exists():
                 model_path.unlink()  # Clean up partial download
+            
+            # Provide helpful message for NAFNet
+            if self.model_name == 'nafnet':
+                logger.error("NAFNet model download failed. This model may not be publicly available.")
+                logger.info("Recommendation: Use SCUNet model instead (faster and publicly available)")
+                logger.info("To switch: Change 'Model' dropdown to 'SCUNet' in the AI Denoiser section")
+            
             raise
     
     def load_model(self, progress_callback=None):

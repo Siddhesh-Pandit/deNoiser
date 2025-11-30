@@ -137,6 +137,11 @@ class ImageProcessor:
         metrics_list = []
         
         for idx, file_path in enumerate(file_paths, 1):
+            # Check for cancellation
+            if hasattr(self, 'cancel_flag') and self.cancel_flag():
+                self.logger.warning("⏹ Processing cancelled")
+                break
+            
             filename = os.path.basename(file_path)
             try:
                 # Update progress if callback provided
