@@ -2,16 +2,148 @@
 
 ## [Unreleased]
 
-### 🎉 New Features
+### 🤖 AI Denoising Revolution
 
-#### Interactive Before/After Comparison
-- **"🔍 View Comparison" button** always visible in GUI (enabled after processing)
-- **Before/After comparison window** with draggable slider overlay
-- **Zoom controls** - Zoom in/out buttons and mouse wheel support (25%-400%)
-- Automatically offered after processing with multiple filters
-- Smooth, real-time image reveal as you drag the slider
-- Visual evaluation of denoising effectiveness
-- Works with any filter configuration, available anytime after processing
+#### Neural Network Models
+- **SCUNet model** - Fast, 3MB, recommended for most use cases
+- **NAFNet model** - Better quality, 9MB (with fallback URL handling)
+- **Auto-padding** - Handles any image dimensions (pads to divisible by 8, crops back)
+- **Automatic fallback** - Uses classical filters if AI fails
+- **GPU acceleration** - NVIDIA CUDA, Apple Silicon MPS, AMD ROCm (Linux)
+- **One-click installation** - In-GUI PyTorch installation with progress window
+- **Real-time progress** - Shows model loading, processing stages, completion
+- **Smart error handling** - Helpful messages for dimension issues, missing dependencies
+
+#### AI User Experience
+- **Auto-opening log window** - Opens automatically when AI processing starts
+- **AI status label** - Real-time feedback (🤖 Loading model, Processing, ✓ Complete, ⚠ Failed)
+- **Progress callbacks** - Visual feedback during model download and inference
+- **Fallback messaging** - Clear indication when AI falls back to classical filters
+
+### 🎨 Advanced Features
+
+#### Selective Denoising
+- **Mask editor** - Paint areas to denoise, leave rest untouched
+- **Brush tools** - Adjustable size, opacity, hardness
+- **Quick actions** - Invert, clear, fill all
+- **Mask preview** - See exactly what will be processed
+- **Mask caching** - Remembers masks per image
+- **Works with all filters** - AI and classical filters respect masks
+
+#### Output Settings & Post-Processing
+- **Sharpening** - Restore structure after denoising (amount, radius controls)
+- **Saturation boost** - Enhance color vibrancy
+- **Brightness adjustment** - Lighten or darken output
+- **Mask-aware** - Post-processing only affects masked areas
+- **Color preservation** - Denoise luminance only (classical filters)
+- **Format flexibility** - PNG, JPEG, TIFF with quality control
+
+#### Interactive Comparison
+- **"🔍 View Comparison" button** - Always visible after processing
+- **Draggable slider** - Smooth before/after reveal
+- **Zoom controls** - 25%-400% zoom with mouse wheel support
+- **Scrollable canvas** - Navigate large zoomed images
+- **Works with AI** - Automatically finds AI or classical output
+- **Fallback detection** - Shows classical output if AI failed
+
+### 🚀 User Experience Improvements
+
+#### Processing Control
+- **⏹ Cancel button** - Stop processing mid-batch without corrupting files
+- **Cancellation points** - Checks between images for clean exit
+- **Partial results** - Saves completed images before cancellation
+- **Thread-safe** - Proper flag handling across threads
+
+#### Visual Feedback
+- **Progress tracking** - Real-time file count and percentage
+- **Status messages** - Clear indication of current operation
+- **Error visibility** - Prominent display of issues with helpful tips
+- **Console logging** - `run_gui_debug.bat` for detailed debugging
+
+#### Quick Presets
+- **📷 Photos** - Optimized for portraits, landscapes
+- **📄 Documents** - Best for scanned text
+- **🌙 Low-Light** - Aggressive noise removal for night photos
+- **🔍 Compare All** - Enable all filters to see which works best
+
+### 🔧 Technical Improvements
+
+#### Comparison Window Enhancements
+- **AI file detection** - Looks for `_ai` suffix files
+- **Fallback logic** - Checks classical outputs if AI files missing
+- **Multiple filter support** - Handles gaussian_ai, median_ai, nonlocal_ai
+- **Detailed error messages** - Shows exactly which files were checked
+- **Debug logging** - Tracks file lookup process
+
+#### AI Processing Pipeline
+- **Dimension validation** - Auto-pads images to model requirements
+- **Tensor handling** - Proper conversion between NumPy and PyTorch
+- **Memory management** - Efficient GPU/CPU memory usage
+- **Error recovery** - Graceful degradation on failures
+
+#### Metrics & Reporting
+- **AI metrics columns** - CSV includes AI filter results
+- **Comparison data** - Side-by-side classical vs AI performance
+- **Extended fieldnames** - gaussian_ai, median_ai, nonlocal_ai columns
+
+### 📚 Documentation Expansion
+
+#### User Guides
+- **AI_DENOISING_GUIDE.md** - Complete AI setup and usage
+- **SELECTIVE_DENOISING.md** - Mask editor tutorial
+- **OUTPUT_SETTINGS_GUIDE.md** - Post-processing options
+- **QUICKSTART_WINDOWS.md** - 5-minute installation
+- **WINDOWS_INSTALL.md** - Detailed Windows setup
+
+#### Technical Documentation
+- **AI_PADDING_FIX.md** - Auto-padding implementation
+- **AI_FALLBACK_FIX.md** - Fallback architecture
+- **AI_PROGRESS_FEEDBACK.md** - Real-time status system
+- **CANCEL_BUTTON_FEATURE.md** - Cancellation implementation
+- **FEATURE_COMPARISON_WINDOW.md** - Comparison window details
+- **BUGFIX_AI_COMPARISON.md** - File detection fixes
+
+#### Installation & Setup
+- **AI_INSTALLATION_OPTIONS.md** - All installation methods
+- **AMD_GPU_SETUP.md** - ROCm setup for Linux
+- **BUILD_INSTRUCTIONS.md** - Create standalone executables
+
+#### Project Information
+- **EVOLUTION_BLOG.md** - Journey from script to full app
+- **LICENSE_INFO.md** - License details and commercial use
+
+### 🐛 Bug Fixes
+
+#### AI Processing
+- Fixed tensor dimension mismatch with auto-padding
+- Fixed AI fallback not working in folder processing mode
+- Fixed comparison window not finding AI output files
+- Fixed NAFNet download with fallback URL handling
+
+#### Comparison Window
+- Fixed file detection for double-extension filenames (e.g., `image.NEF.jpg`)
+- Fixed comparison window only checking for `nonlocal_ai` files
+- Added fallback to classical outputs when AI files missing
+- Improved error messages showing checked file paths
+
+#### Output Settings
+- Fixed output settings not applying to AI mode
+- Fixed mask-aware post-processing (sharpening, saturation, brightness)
+- Fixed preserve color setting (now only affects classical filters)
+
+### ⚡ Performance
+
+- **GPU acceleration** - 10-100x faster with CUDA/MPS/ROCm
+- **Efficient padding** - Minimal overhead (<1% extra pixels typically)
+- **Smart caching** - Model loaded once, reused for all images
+- **Cancellable operations** - No wasted processing time
+
+### 🔒 Stability
+
+- **Graceful degradation** - AI fails → Classical filters
+- **Error resilience** - Try primary URL → Try fallback → Use CPU
+- **Thread safety** - Proper synchronization for GUI updates
+- **Clean cancellation** - No corrupted files or bad state
 
 ## [2.0.0] - Major Refactor & GUI Addition
 
