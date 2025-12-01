@@ -1,6 +1,6 @@
 # Image Denoiser
 
-A powerful batch image denoising tool with GUI and CLI interfaces. Applies multiple noise reduction filters and provides quality metrics for comparison.
+A powerful batch image denoising tool with AI and classical filters, featuring an intuitive GUI and comprehensive quality metrics.
 
 > **👉 NEW USER? [START HERE](START_HERE.md) - Everything you need in one page**
 >
@@ -8,18 +8,34 @@ A powerful batch image denoising tool with GUI and CLI interfaces. Applies multi
 
 ## ✨ Features
 
-- **🖼️ GUI Application** - Easy-to-use graphical interface (no config editing needed)
+### Core Features
+- **🖼️ Modern GUI** - Intuitive interface with real-time progress and auto-opening log window
+- **🤖 AI Denoising** - Neural network models (SCUNet/NAFNet) for superior quality
+  - Auto-padding for any image dimensions
+  - Automatic fallback to classical filters if AI fails
+  - GPU acceleration (NVIDIA CUDA, Apple Silicon MPS, AMD ROCm on Linux)
 - **🎯 Quick Presets** - One-click optimization for Photos, Documents, Low-Light, or Compare All
-- **🔍 Before/After Comparison** - Interactive slider to compare original vs processed images
-- **⚡ Three Denoising Filters**:
-  - Gaussian Filter - Fast smoothing
-  - Median Filter - Salt-and-pepper noise removal
-  - Non-local Means ⭐ - **Best quality** - Preserves edges and details
-- **� Qualityr Metrics** - PSNR and noise reduction percentage for each filter
-- **🎛️ Fully Configurable** - Adjust all filter parameters
-- **� BSatch Processing** - Process entire folders automatically
-- **💾 Multiple Formats** - PNG, JPEG, TIFF, BMP, GIF support
-- **📈 CSV Reports** - Detailed metrics exported for analysis
+- **🔍 Interactive Comparison** - Draggable slider with zoom (25%-400%) to compare before/after
+- **⏹ Cancel Anytime** - Stop processing mid-batch without corrupting files
+
+### Denoising Methods
+**Classical Filters:**
+- Gaussian Filter - Fast smoothing
+- Median Filter - Salt-and-pepper noise removal
+- Non-local Means ⭐ - Best classical quality, preserves edges and details
+
+**AI Models:**
+- SCUNet - Fast, 3MB, recommended
+- NAFNet - Better quality, 9MB (download may fail, use SCUNet)
+
+### Advanced Features
+- **🎨 Selective Denoising** - Paint mask to denoise only specific areas
+- **⚙️ Output Settings** - Post-processing with sharpening, saturation boost, brightness adjustment
+- **📊 Quality Metrics** - PSNR and noise reduction percentage for each filter
+- **🎛️ Fully Configurable** - Adjust all filter parameters in real-time
+- **📦 Batch Processing** - Process entire folders with progress tracking
+- **💾 Multiple Formats** - PNG, JPEG, TIFF, BMP, GIF, RAW (NEF, CR2, ARW, DNG, etc.)
+- **📈 CSV Reports** - Detailed metrics comparing all filters
 
 ## 🚀 Quick Start
 
@@ -27,7 +43,7 @@ A powerful batch image denoising tool with GUI and CLI interfaces. Applies multi
 
 #### 1. Install Python
 
-Download and install [Python 3.12](https://www.python.org/downloads/) (or 3.8-3.13)
+Download and install [Python 3.12](https://www.python.org/downloads/) (or 3.8-3.14)
 
 **Windows:** Make sure to check "Add Python to PATH" during installation
 
@@ -74,6 +90,19 @@ python gui.py
 python denoiserBatch.py
 ```
 
+#### 5. Optional: Install AI Denoising
+
+**In-GUI (Easiest):**
+1. Check "Enable AI Denoiser 🤖"
+2. Click "Yes" to install (~500MB)
+3. Wait 3-5 minutes
+4. Restart app
+
+**Or manually:**
+```bash
+pip install -r requirements-ai.txt
+```
+
 ---
 
 ### Building Standalone Executables (Optional)
@@ -87,35 +116,35 @@ See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for creating executables:
 
 ## 📖 Documentation
 
-See [USAGE.md](USAGE.md) for detailed documentation including:
-- Configuration guide
-- Filter tuning recommendations
-- Example workflows
-- Troubleshooting tips
-
-See [CHANGELOG.md](CHANGELOG.md) for version history and changes.
+- **[USAGE.md](USAGE.md)** - Complete user guide with filter tuning and workflows
+- **[AI_DENOISING_GUIDE.md](AI_DENOISING_GUIDE.md)** - AI models, GPU setup, troubleshooting
+- **[SELECTIVE_DENOISING.md](SELECTIVE_DENOISING.md)** - Mask editor guide
+- **[OUTPUT_SETTINGS_GUIDE.md](OUTPUT_SETTINGS_GUIDE.md)** - Post-processing options
+- **[CHANGELOG.md](CHANGELOG.md)** - Version history and changes
 
 ## 🖥️ GUI Preview
 
 The GUI provides:
-- Folder browser for input/output selection
-- Filter enable/disable checkboxes
-- Real-time parameter adjustment
-- Live processing log
-- Progress tracking
+- Folder/file browser for input selection
+- Filter enable/disable with real-time parameter adjustment
+- Quick presets for common scenarios
+- Live processing log with auto-popup for AI
+- Progress tracking with cancel button
+- Before/after comparison with interactive slider and zoom
+- Mask editor for selective denoising
 
 ## 📊 Example Output
 
 The tool generates:
-- Denoised images with filter suffix (e.g., `image_gaussian.png`)
+- Denoised images with filter suffix (e.g., `image_nonlocal_ai.png`)
 - CSV metrics file with noise reduction stats
 - Processing log with quality measurements
 
 ### Sample Metrics
 
-| Filename | Gaussian Noise Reduction | Gaussian PSNR | Median Noise Reduction | Median PSNR | Non-local Noise Reduction | Non-local PSNR |
-|----------|-------------------------|---------------|------------------------|-------------|---------------------------|----------------|
-| photo.jpg | 45.23% | 32.15 dB | 38.67% | 30.89 dB | 52.34% | 34.21 dB |
+| Filename | Gaussian NR | Gaussian PSNR | AI NR | AI PSNR | Non-local NR | Non-local PSNR |
+|----------|-------------|---------------|-------|---------|--------------|----------------|
+| photo.jpg | 45.23% | 32.15 dB | 58.91% | 36.42 dB | 52.34% | 34.21 dB |
 
 ## 🎯 Use Cases
 
@@ -124,6 +153,7 @@ The tool generates:
 - Low-light image enhancement
 - Batch photo processing
 - Image quality comparison
+- Selective area denoising (faces, subjects)
 
 ## 📋 Requirements
 
@@ -149,19 +179,21 @@ image-denoiser/
 ├── denoiserBatch.py           # CLI entry point
 ├── config_loader.py           # Configuration management
 ├── image_io.py                # Image I/O operations
-├── image_filters.py           # Filter implementations
+├── image_filters.py           # Classical filter implementations
+├── ai_denoiser.py             # AI denoising (SCUNet/NAFNet)
+├── ai_models.py               # AI model architectures
 ├── color_utils.py             # Color preservation utilities
 ├── metrics.py                 # Metrics calculation
 ├── processor.py               # Batch processing logic
+├── mask_editor.py             # Selective denoising mask editor
 ├── tooltip.py                 # GUI tooltip utilities
 ├── config.ini                 # Configuration file
-├── requirements.txt           # Dependencies
-├── icon.ico / icon.png        # Application icon (included)
-├── create_icon.py             # Icon generator script
-├── USAGE.md                   # User guide
-├── BUILD_INSTRUCTIONS.md      # Build standalone executable
-├── build_installer.bat        # Windows installer builder
-└── ImageDenoiser.spec         # PyInstaller configuration
+├── requirements.txt           # Core dependencies
+├── requirements-ai.txt        # AI dependencies
+├── icon.ico / icon.png        # Application icon
+├── run_gui.bat / .sh          # Quick launchers
+├── install_dependencies.bat/.sh  # Installers
+└── Documentation files (.md)
 ```
 
 ## 📷 RAW Format Support
@@ -211,13 +243,61 @@ pip install rawpy
 
 Configure in `config.ini` under `[RAW]` section or select in GUI.
 
+## 🤖 AI Denoising
+
+### Models
+
+**SCUNet (Recommended):**
+- Size: 3MB
+- Speed: Fast
+- Quality: Excellent
+- Download: Reliable
+
+**NAFNet:**
+- Size: 9MB
+- Speed: Slower
+- Quality: Slightly better
+- Download: May fail (use SCUNet if issues)
+
+### GPU Support
+
+**NVIDIA (CUDA):**
+- Windows/Linux: Full support
+- Fastest performance
+- Install: `pip install torch --index-url https://download.pytorch.org/whl/cu118`
+
+**Apple Silicon (MPS):**
+- Mac M1/M2/M3: Automatic support
+- Good performance
+- Install: `pip install torch`
+
+**AMD (ROCm):**
+- Linux only: Supported
+- Moderate performance
+- Install: `pip install torch --index-url https://download.pytorch.org/whl/rocm5.7`
+
+**CPU:**
+- All platforms: Automatic fallback
+- Slower but works everywhere
+- No special installation needed
+
+### Features
+
+- **Auto-padding:** Handles any image dimensions (models require divisible by 8)
+- **Automatic fallback:** Uses classical filters if AI fails
+- **Progress display:** Real-time status with model loading, processing stages
+- **Cancellable:** Stop AI processing mid-batch
+- **Post-processing:** Apply sharpening, saturation, brightness after AI
+
 ## ⚠️ Limitations
 
 - **RAW processing** requires `rawpy` library (optional, Python 3.8-3.13 only)
 - **Python 3.14+** users cannot use RAW support (rawpy not yet available)
+- **NAFNet download** may fail (use SCUNet instead)
+- **AMD GPU** acceleration only on Linux with ROCm
 - RAW files take significantly longer to process than standard formats
 - Processing time varies with image size and filter settings
-- Non-local means filter is computationally intensive
+- Non-local means and AI filters are computationally intensive
 
 ## 📝 Example Usage
 
