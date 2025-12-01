@@ -116,11 +116,31 @@ See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for creating executables:
 
 ## 📖 Documentation
 
+### User Guides
 - **[USAGE.md](USAGE.md)** - Complete user guide with filter tuning and workflows
+- **[QUICKSTART_WINDOWS.md](QUICKSTART_WINDOWS.md)** - 5-minute Windows installation
+- **[WINDOWS_INSTALL.md](WINDOWS_INSTALL.md)** - Detailed Windows setup and troubleshooting
 - **[AI_DENOISING_GUIDE.md](AI_DENOISING_GUIDE.md)** - AI models, GPU setup, troubleshooting
 - **[SELECTIVE_DENOISING.md](SELECTIVE_DENOISING.md)** - Mask editor guide
 - **[OUTPUT_SETTINGS_GUIDE.md](OUTPUT_SETTINGS_GUIDE.md)** - Post-processing options
+
+### Installation & Setup
+- **[AI_INSTALLATION_OPTIONS.md](AI_INSTALLATION_OPTIONS.md)** - All methods to install AI dependencies
+- **[AMD_GPU_SETUP.md](AMD_GPU_SETUP.md)** - AMD GPU acceleration setup (Linux ROCm)
+- **[BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md)** - Create standalone executables
+
+### Technical Documentation
+- **[AI_PADDING_FIX.md](AI_PADDING_FIX.md)** - How auto-padding handles any image dimensions
+- **[AI_FALLBACK_FIX.md](AI_FALLBACK_FIX.md)** - Automatic fallback when AI fails
+- **[AI_PROGRESS_FEEDBACK.md](AI_PROGRESS_FEEDBACK.md)** - Real-time AI status implementation
+- **[CANCEL_BUTTON_FEATURE.md](CANCEL_BUTTON_FEATURE.md)** - Cancellable processing architecture
+- **[FEATURE_COMPARISON_WINDOW.md](FEATURE_COMPARISON_WINDOW.md)** - Before/after comparison with zoom
+- **[BUGFIX_AI_COMPARISON.md](BUGFIX_AI_COMPARISON.md)** - Comparison window AI file detection fix
+
+### Project Information
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history and changes
+- **[EVOLUTION_BLOG.md](EVOLUTION_BLOG.md)** - Journey from simple script to full-featured app
+- **[LICENSE_INFO.md](LICENSE_INFO.md)** - License details and commercial use
 
 ## 🖥️ GUI Preview
 
